@@ -5,6 +5,7 @@ Created on Sep 16, 2015
 '''
 
 import unittest
+from socket import AF_INET, AF_INET6
 from pyroute2.iproute import IPRoute
 
 from mcdynipd.interface import NetworkInterfaceConfig, DuplicateIPError,\
@@ -53,23 +54,21 @@ class InterfaceConfigTest(unittest.TestCase):
         # plus that it is the correct IP
         ips = interface_cfg.get_ips()
         self.assertEqual(len(ips), 1, "dummy interface either didn't get the IP or has multiple!")
-        self.assertEqual(ips[0], '10.0.241.123', "IP assignment failure!")
-
-        # Pull the full IP configuration info, and check all attributes
-        ips = interface_cfg.get_ips(fullinfo=True)
-        self.assertEqual(len(ips), 1, "dummy interface full info reported != 1 IP!")
-        self.assertEqual(ips[0][0], '10.0.241.123', "IP assignment failure!")
-        self.assertEqual(ips[0][1], '10.0.241.255', "IP assignment failure!")
-        self.assertEqual(ips[0][2], 24, "IP assignment failure!")
+        self.assertEqual(ips[0]['ip_address'], '10.0.241.123', "IP assignment failure!")
+        self.assertEqual(ips[0]['family'], AF_INET)
+        self.assertEqual(ips[0]['broadcast'], '10.0.241.255', "IP assignment failure!")
+        self.assertEqual(ips[0]['prefix_length'], 24, "IP assignment failure!")
 
     def test_add_ipv6(self):
         '''Adds an IPv6 address and then confirms it'''
-
         interface_cfg = NetworkInterfaceConfig('dummy0')
         interface_cfg.add_v6_ip('dead:beef::1', 64)
         ips = interface_cfg.get_ips()
         self.assertEqual(len(ips), 1, "dummy interface either didn't get the IP or has multiple!")
-        self.assertEqual(ips[0], 'dead:beef::1', "IP assignment failure!")
+        self.assertEqual(ips[0]['ip_address'], 'dead:beef::1', "IP assignment failure!")
+        self.assertEqual(ips[0]['family'], AF_INET6, "IP assignment failure!")
+        self.assertEqual(ips[0]['prefix_length'], 64, "IP assignment failure!")
+
 
     def test_remove_ipv6(self):
         '''Removes an IPv6 address and confirms it'''
@@ -119,6 +118,11 @@ class InterfaceConfigTest(unittest.TestCase):
         interface_cfg = NetworkInterfaceConfig('dummy0')
         with self.assertRaises(IPNotFound):
             interface_cfg.get_full_ip_info("10.0.21.123")
+
+    def test_get_routes(self):
+        '''Tests that get_routes works properly for v4 and v6 addresses'''
+        interface_cfg = NetworkInterfaceConfig('eth0')
+        interface_cfg.get_routes()
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
