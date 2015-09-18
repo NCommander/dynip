@@ -9,10 +9,6 @@ from socket import AF_INET, AF_INET6
 import ipaddress
 from pyroute2.iproute import IPRoute
 
-def validate_ip(ip_addr):
-    '''Validates an IP address using ipaddress'''
-    ipaddress.ip_address(ip_addr)
-
 # Exception classes for Network Interface Configuration
 class InterfaceConfigurationError(Exception):
     '''An interface failed to configure; this error is generated if
@@ -164,12 +160,11 @@ class NetworkInterfaceConfig(object):
         # If we get here, the IP wasn't found
         raise IPNotFound("IP not found on interface")
 
-    def add_v4_ip(self, ip_addr, broadcast, prefixlen):
+    def add_v4_ip(self, ip_addr, prefixlen):
         '''Adds an IPv4 address to this interface'''
 
         ip_dict = {'ip_address': ip_addr,
                    'family': AF_INET,
-                   'broadcast': broadcast,
                    'prefix_length': prefixlen}
 
         self.add_ip(ip_dict)
@@ -184,7 +179,7 @@ class NetworkInterfaceConfig(object):
 
     def add_ip(self, ip_info):
         '''Adds an IP to an interface'''
-        validate_ip(ip_info['ip_address'])
+        check_and_normalize_ip_dict(ip_info)
 
         # Throw an error if we try to add an existing address.
         existing_ip_check = None
@@ -221,10 +216,10 @@ class NetworkInterfaceConfig(object):
 
     def remove_ip(self, ip_addr):
         '''Removes an IP from an interface'''
-        validate_ip(ip_addr)
+        ip_address = validate_and_normalize_ip(ip_addr)
 
         # Get the full set of IP information
-        ip_info = self.get_full_ip_info(ip_addr)
+        ip_info = self.get_full_ip_info(ip_address)
 
         # Attempt to delete
         if ip_info['family'] == AF_INET:
@@ -250,10 +245,10 @@ class NetworkInterfaceConfig(object):
         # Didn't get it. Throw an exception and bail
         raise InterfaceConfigurationError("IP deletion failure")
 
-    def add_route(self):
+    def add_route(self, route_info):
         '''Adds a route for a given interface'''
 
-    def remove_route(self):
+    def remove_route(self, route_info):
         '''Removes a route from an interface'''
 
     def get_routes(self):
@@ -263,16 +258,62 @@ class NetworkInterfaceConfig(object):
         # find entries for this interface. Miserable interfaces are miserable. Furthermore,
         # I can only get the v4 and v6 routes as a separate transaction
 
-        # Pull the v4 global routing table
-        v4_routing_table = self.iproute_api.get_routes(family=AF_INET)
-        filtered_v4_table = self._filter_routing_table(v4_routing_table)
+        # In theory, we can apply a filter to returned routes, but I can't figure out if
+        # we can exclude things like cache entries, so we'll just grab stuff on a per family
+        # level, and filter for ourselves
 
-        import pprint
-        #pprint.pprint(filtered_v4_table)
-        return
+        # Pull the v4 and v6 global routing table
+        v4_routing_table = self.iproute_api.get_routes(family=AF_INET)
+        v6_routing_table = self.iproute_api.get_routes(family=AF_INET6)
+        kernel_routing_table = self._filter_routing_table(v4_routing_table + v6_routing_table)
+
+        # _filter_routing_table got rid of most of the junk we don't care about
+        # so now we need to walk the table and make it something far similar to
+        # praise without ripping our hair out. We also filter out link-local
+        # addresses in this step because we need the full prefix to know if its
+        # a link-local network
+
+        routing_table = []
+        for route in kernel_routing_table:
+            route_dict = {}
+
+            # Let's get the easy stuff first
+            for attribute in route['attrs']:
+                if attribute[0] == 'RTA_PREFSRC':
+                    route_dict['source'] = attribute[1]
+                if attribute[0] == 'RTA_DST':
+                    route_dict['destination'] = attribute[1]
+                if attribute[0] == 'RTA_GATEWAY':
+                    route_dict['gateway'] = attribute[1]
+
+            # Family is mapped straight through so AF_INET and AF_INET6 just match
+            route_dict['family'] = route['family']
+
+            # Attach prefixes if they're non-zero
+            if route['src_len'] != 0 and 'source' in route_dict:
+                route_dict['source'] += ("/%s" % route['src_len'])
+            if route['dst_len'] != 0 and 'destination' in route_dict:
+                route_dict['destination'] += ("/%s" % route['dst_len'])
+
+                # Check for link-local here
+                if ipaddress.ip_network(route_dict['destination']).is_link_local:
+                    continue # skip the route
+
+            if route['dst_len'] != 0 and 'gateway' in route_dict:
+                route_dict['gateway'] += ("/%s" % route['dst_len'])
+
+            # Map the protocol to something human-readable
+            route_dict['protocol'] = map_protocol_number_to_string(route['proto'])
+            route_dict['type'] = determine_route_type(route_dict)
+
+            routing_table.append(route_dict)
+        return routing_table
 
     def determine_if_route_exists(self):
         '''Checks if a route exists'''
+
+    def validate_route_dict(self):
+        '''Validates a routing information dict'''
 
     def _filter_routing_table(self, routing_table):
         '''Internal API. Takes output of get_routes, and filters down to what we care about'''
@@ -280,55 +321,230 @@ class NetworkInterfaceConfig(object):
         # For every configured IP address, a couple of automatic routes are
         # generated that we're not interested in.
         #
-        # Case 1, the self route:
-        # The routing table has a "self" route indicating packets to this IP
-        # should come to ourselves. Technically, we can filter on table 255 (local)
-        # for this, but its possible that this information may be stored in a different
-        # table. I won't put it past NetworkManager to do exactly that
+        # Understanding this code requires an understanding of how the Linux kernel
+        # handles routing and routing tables. For each interface, the kernel has a possible
+        # 255 tables to hold routes. These exist to allow for specific routing rules and
+        # preferences as the system goes from table 255->1 in determining which route
+        # will be used.
         #
-        # We can identify these routes since DST and PREFSRC will match, but we need
-        # to walk attrs again to find these, so store this route in a temp variable
-        # for a second route of processing
+        # On a default configuration, only three routing tables are defined:
+        # 255 - local
+        # 254 - main
+        # 253 - default
         #
-        # Case 2, self->broadcast (IPv4 only)
-        # When an IP is configured via netlink, it gets a routing entry of itself
-        # to the broadcast address. Unfortunately, to figure this out requires knowing
-        # our prefix length, and the broadcast address of an interface. We then compare
-        # DST to the broadcast entry.
+        # Table names are controlled in /etc/iproutes.d/rt_tables
+        #
+        # The local table is special as it can only be added to by the kernel, and removing
+        # entries from it is explicitly done "at your own risk". It defines which IPs this
+        # machine owns so any attempt to communicate on it comes back to itself. As such
+        # we can simply filter out 255 to make our lives considerably easier
+        #
+        # Unfortunately, filtering 255 doesn't get rid of all the "line noise" so to speak.
+        #
+        # From this point forward, I've had to work from kernel source, and the source of
+        # iproute2 to understand what's going on from netlayer. But basically, here's the
+        # rundown of what we need to do
+        #
+        # Case 1 - Cached Entries
+        # This is a surprising complicated case. Cached entries are used by the kernel for
+        # automatically configured routes. I haven't seen the kernel v4 table populated, but
+        # that may just be because of my local usage
+        #
+        # IPv6 is a different story. Routing information for IPv6 can come in the form of
+        # routing announcements, static configuration, and so forth. It seems all IPv6 info is
+        # is marked as a cached entry. This is made more complicated that the kernel stores
+        # various IPv6 routing information in the table for "random" hosts accessed. For example.
+        # on my home system ...
+        #
+        # mcasadevall@perdition:~/workspace/mcdynipd$ route -6 -C
+        # Kernel IPv6 routing cache
+        # Destination                    Next Hop                   Flag Met Ref Use If
+        # 2001:4860:4860::8888/128       fe80::4216:7eff:fe6c:492   UGDAC 0   0    47 eth0
+        # 2607:f8b0:4001:c09::bc/128     fe80::4216:7eff:fe6c:492   UGDAC 0   1    17 eth0
+        # 2607:f8b0:4004:808::1013/128   fe80::4216:7eff:fe6c:492   UGDAC 0   1    21 eth0
+        # 2607:f8b0:4009:805::1005/128   fe80::4216:7eff:fe6c:492   UGDAC 0   0     3 eth0
+        # 2607:f8b0:4009:80a::200e/128   fe80::4216:7eff:fe6c:492   UGDAC 0   0    85 eth0
+        # 2607:f8b0:400d:c04::bd/128     fe80::4216:7eff:fe6c:492   UGDAC 0   1    76 eth0
+        #
+        # 2607:f8b0::/32 is owned by Google, and these were connections my system made to Google
+        # systems. Looking at my router (which runs a 6to4 HE tunnel), it appears 6to4 is handled
+        # via static routing and should show up sans CACHEINFO (untested - needs confirmation).
+        #
+        # Digging into iproute2, the proto field defines what defined a route. Here's the list
+        # defined in the source
+        #
+        # ----------------------------------------------------------------------------
+        # #define RTPROT_UNSPEC   0
+        # #define RTPROT_REDIRECT 1       /* Route installed by ICMP redirects;
+        #                                     not used by current IPv4 */
+        # #define RTPROT_KERNEL   2       /* Route installed by kernel            */
+        # #define RTPROT_BOOT     3       /* Route installed during boot          */
+        # #define RTPROT_STATIC   4       /* Route installed by administrator     */
+        #
+        # /* Values of protocol >= RTPROT_STATIC are not interpreted by kernel;
+        #    they are just passed from user and back as is.
+        #    It will be used by hypothetical multiple routing daemons.
+        #    Note that protocol values should be standardized in order to
+        #    avoid conflicts.
+        #  */
+        #
+        # #define RTPROT_GATED    8       /* Apparently, GateD */
+        # #define RTPROT_RA       9       /* RDISC/ND router advertisements */
+        # #define RTPROT_MRT      10      /* Merit MRT */
+        # #define RTPROT_ZEBRA    11      /* Zebra */
+        # #define RTPROT_BIRD     12      /* BIRD */
+        # #define RTPROT_DNROUTED 13      /* DECnet routing daemon */
+        # #define RTPROT_XORP     14      /* XORP */
+        # #define RTPROT_NTK      15      /* Netsukuku */
+        # #define RTPROT_DHCP     16      /* DHCP client */
+        # #define RTPROT_MROUTED  17      /* Multicast daemon */
+        # ----------------------------------------------------------------------------
+        #
+        # Looking at the behavior of the kernel, if a given prefix has a route, it will
+        # place a proto 2 entry for it with no routing address. Cached table entries
+        # exist to the next point:
+        #
+        # 2001:4860:4860::8888/128       fe80::4216:7eff:fe6c:492   UGDAC 0   0    47 eth0
+        #
+        # (this shows up as proto 9 in the routing table)
+        #
+        # To get the default route of a device in IPv6, we need entries that ONLY have RTA_GATEWAY
+        # and not RTA_DEST, regardless of protocol. Otherwise, we filter out proto 9. This gets
+        # output identical to route aside from the multicast address (ff00::/8)
+        #
+        # As a final note to this saga, after I coded this, I found rtnetlink is documented on
+        # Linux systems. Run man 7 rtnetlink to save yourself a source dive :(
 
-        # Python best practices says to build a new list every time we
-        # need to edit it. That's a lot of lists
         filtered_table = []
-        interface_routes = []
+        non_cached_table = []
 
+        # Pass 1. Exclude table 255, and any entries that have RTA_CACHEINFO
         for route in routing_table:
+            # If this is a 255 entry, ignore it, we don't care
+            if route['table'] == 255:
+                continue
+
+            # Now the table cache
+            cached_entry = False
+            destination_address = None
+            gateway_address = None
+
+            routing_attributes = route['attrs']
+            for attribute in routing_attributes:
+                if attribute[0] == 'RTA_CACHEINFO':
+                    cached_entry = True
+                if attribute[0] == 'RTA_DST':
+                    destination_address = attribute[1]
+                if attribute[0] == 'RTA_GATEWAY':
+                    gateway_address = attribute[1]
+
+            # If its not a cached entry, always keep it
+            if not cached_entry:
+                non_cached_table.append(route)
+                continue
+
+            # Keep it if proto != 9
+            if route['proto'] != 9:
+                non_cached_table.append(route)
+                continue
+
+            # If it only has DST or GATEWAY, its a default route, keep it
+            if ((gateway_address and not destination_address) or
+                    (destination_address and not gateway_address)):
+                non_cached_table.append(route)
+                continue
+
+        for route in non_cached_table:
             # Like IP addresses, most of the route information is stored
             # in attributes. RTA_OIF (OIF = Outbound Interface), contains
             # the index number of the interface this route is assigned to
             routing_attributes = route['attrs']
 
-
             for attribute in routing_attributes:
                 if attribute[0] == 'RTA_OIF' and attribute[1] == self.interface_index:
-                    interface_routes.append(route)
-
-            # Now we loop through the interface routes, and get rid of the ones we don't care about
-            for route in interface_routes:
-                # Gateway routes won't have this attribute
-                # they only exist on point-to-point routes
-                route_prefsrc = None
-                route_dst = None
-                for attribute in routing_attributes:
-                    if attribute[0] == 'RTA_PREFSRC':
-                        route_prefsrc = attribute[1]
-                    if attribute[0] == 'RTA_DST':
-                        route_dst = attribute[1]
-
-                # Now we do the check and decide if we want to filter or not
-                if route_prefsrc != route_dst:
                     filtered_table.append(route)
 
         # filtered_table should just contain our OIFs, pass this back up for
         # processing
         return filtered_table
 
+# Utility functions go down here
+def validate_and_normalize_ip(ip_addr):
+    '''Validates an IP address using ipaddress'''
+    return str(ipaddress.ip_address(ip_addr))
+
+def check_and_normalize_ip_dict(ip_dict):
+    '''Validates and normalize the information given in an ip_dict'''
+
+    # Check IP first, and make sure we've got the right family
+    ip_address = ipaddress.ip_address(ip_dict['ip_address'])
+
+    # Validate based on address family
+    if ip_dict['family'] == AF_INET:
+        # First, make sure we've got a v4 address
+        if not isinstance(ip_address, ipaddress.IPv4Address):
+            raise ValueError('AF_INET specified, but not an IPv4 address.')
+
+        # Glue the prefix length on, and calculate the broadcast address
+        ip_network = ipaddress.ip_network(str(ip_address) + "/%s" % ip_dict['prefix_length'],
+                                          strict=False)
+        ip_dict['ip_address'] = str(ip_address)
+        ip_dict['broadcast'] = str(ip_network.broadcast_address)
+
+    elif ip_dict['family'] == AF_INET6:
+        # v6 is slightly similar, we just need to validate the address, and the prefix_length
+        if not isinstance(ip_address, ipaddress.IPv6Address):
+            raise ValueError('AF_INET6 specified but not an IPv6 adddress')
+
+        # Normalizing v6 addresses is important for sanity reasons
+        ip_dict['ip_address'] = str(ip_address)
+
+        # I've debated making this check stricter by disallowing < 32 ...
+        if ip_dict['prefix_length'] < 1 or ip_dict['prefix_length'] > 128:
+            raise ValueError('Invalid prefix length')
+
+    else:
+        raise ValueError('Unknown protocol family')
+
+
+def map_protocol_number_to_string(protocol_number):
+    '''Maps kernel routing protocol to string.'''
+    protocol_mapping_table = {0: 'unspec',
+                              1: 'redirect',
+                              2: 'kernel',
+                              3: 'boot',
+                              4: 'static',
+                              8: 'gated',
+                              9: 'ra',
+                              10: 'mrt',
+                              11: 'zebra',
+                              12: 'bird',
+                              13: 'decnet',
+                              14: 'xorp',
+                              15: 'ntk',
+                              16: 'dhcp',
+                              17: 'mrouted'}
+
+    return protocol_mapping_table.get(protocol_number, 'unknown')
+
+def determine_route_type(route):
+    '''Determines the type of route depending on the fields set'''
+    route_type = 'unknown'
+
+    # Handle the known cases
+    if 'source' in route and 'destination' in route:
+        # Special case if source is a network, and NOT an address, its a network route
+        try:
+            ipaddress.ip_network(route['source'], strict=True)
+        except ValueError:
+            # It's point to point, return static
+            return 'static'
+
+        route_type = 'network'
+    if 'destination' in route and not 'source' in route:
+        route_type = 'network'
+
+    if 'gateway' in route:
+        route_type = 'default'
+
+    return route_type

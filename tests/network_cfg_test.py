@@ -47,7 +47,6 @@ class InterfaceConfigTest(unittest.TestCase):
         interface_cfg = NetworkInterfaceConfig('dummy0')
 
         interface_cfg.add_v4_ip(ip_addr='10.0.241.123',
-                                broadcast='10.0.241.255',
                                 prefixlen=24)
 
         # Retrieve the IPs on the interface and make sure its the only one
@@ -69,6 +68,7 @@ class InterfaceConfigTest(unittest.TestCase):
         self.assertEqual(ips[0]['family'], AF_INET6, "IP assignment failure!")
         self.assertEqual(ips[0]['prefix_length'], 64, "IP assignment failure!")
 
+        # FIXME: Write tests using different IPv6 notations
 
     def test_remove_ipv6(self):
         '''Removes an IPv6 address and confirms it'''
@@ -83,19 +83,16 @@ class InterfaceConfigTest(unittest.TestCase):
         '''Tests duplicate address protection'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
         interface_cfg.add_v4_ip(ip_addr='10.0.241.123',
-                                broadcast='10.0.241.255',
                                 prefixlen=24)
 
         with self.assertRaises(DuplicateIPError):
             interface_cfg.add_v4_ip(ip_addr='10.0.241.123',
-                                    broadcast='10.0.241.255',
                                     prefixlen=24)
 
     def test_remove_ipv4(self):
         '''Tests interface deconfiguration of v4 addresses'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
         interface_cfg.add_v4_ip(ip_addr='10.0.241.123',
-                                broadcast='10.0.241.255',
                                 prefixlen=24)
 
         # Now remove the IP
@@ -110,7 +107,6 @@ class InterfaceConfigTest(unittest.TestCase):
         interface_cfg = NetworkInterfaceConfig('dummy0')
         with self.assertRaises(ValueError):
             interface_cfg.add_v4_ip(ip_addr='ImNotAnIP!',
-                                    broadcast='Nope',
                                     prefixlen=1337)
 
     def test_check_for_nonexistent_ip(self):
@@ -119,10 +115,16 @@ class InterfaceConfigTest(unittest.TestCase):
         with self.assertRaises(IPNotFound):
             interface_cfg.get_full_ip_info("10.0.21.123")
 
+    def test_add_v4_route(self):
+        '''Adds an IPv4 route and validates it was added successfully'''
+
+    def test_v4_remove_route(self):
+        '''Removes an IPv4 route and validates it was removed successfully'''
+
     def test_get_routes(self):
         '''Tests that get_routes works properly for v4 and v6 addresses'''
         interface_cfg = NetworkInterfaceConfig('eth0')
-        interface_cfg.get_routes()
+        #interface_cfg.get_routes()
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
