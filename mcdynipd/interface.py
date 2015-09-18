@@ -45,17 +45,31 @@ class DuplicateIPError(Exception):
         return repr(self.value)
 
 class NetworkInterfaceConfig(object):
-    '''
-    classdocs
+    '''High-level abstraction of a network interface's configuration
+
+    NetworkInterfaceConfig is designed to abstract most of the pain of
+    work with (rt)netlink directly, and use pythonic methods for manipulating
+    network configuration. At a high level, this interface is protocol-neutral,
+    though only support for IPv4 and IPv6 has been added.
+
+    Each function call does sanity checks to try and prevent undefined behavior,
+    such as defining a link-local address by accident. For ease of use, this
+    interface does not use the kernel netlink bind() functionality, and instead
+    works in an async fashion. Manipulation of interfaces is rechecked at
+    the end of each function to make sure that the state changed properly, and
+    to make sure there wasn't some sort of silent failure.
+
+    A single IPRoute() socket is open per instance of this class for performance
+    reasons. This class is thread-safe.
     '''
     def __init__(self, interface):
         '''Manipulations the configuration of a given interface
 
         Args:
-            interface - name of the interface to manipulate
+            interface - name of the interface to manipulate (i.e. 'eth0')
 
         Raises:
-            IndexError - if the interface does not exist
+            InvalidNetworkDevice - if the interface does not exist
         '''
 
         self.interface = interface
@@ -63,14 +77,16 @@ class NetworkInterfaceConfig(object):
 
         # Confirm this is a valid interface
         # This will chuck a IndexError exception if it doesn't exist
-        self.interface_index = self.get_interface_index()
+        self.interface_index = self._get_interface_index()
 
     def __del__(self):
         self.iproute_api.close()
 
-    def get_interface_index(self):
-        '''
-        Retrieve the index for a given interface.
+    def _get_interface_index(self):
+        '''Private API to get the interface index number
+
+        Raises:
+            InvalidNetworkDevice - if an interface isn't found by pyroute2
         '''
 
         try:
@@ -82,7 +98,19 @@ class NetworkInterfaceConfig(object):
         return idx
 
     def get_ips(self):
-        '''Returns all a list IPs for a given interface. None if no IPs are configures'''
+        '''Returns all a list IPs for a given interface. None if no IPs are configures
+
+        IPs are returned in a list of dictionaries for easy enumeration.
+
+        Keys that are always available:
+            ip_address - assigned address
+            family - protocol family of the returned IP. Either AF_INET, or AF_INET6
+            prefix_length - Length of the network prefix assigned to this interface
+                            This is the CIDR representation of the netmask.
+
+            if family == AF_INET
+                broadcast - broadcast address for an interface
+        '''
 
         # I'd like to use label= here, but IPv6 information is not returned
         # when doing so. Possibly a bug in pyroute2
@@ -149,7 +177,18 @@ class NetworkInterfaceConfig(object):
         return ips
 
     def get_full_ip_info(self, wanted_address):
-        '''Retrieves the broadcast, and prefix length for a given IP on this interface'''
+        '''Returns an ip_dict for an individual IP address. Format identical to get_ips()
+
+        Args:
+            wanted_address - a valid v4 or v6 address to search for. Value is normalized
+                             by ipaddress.ip_address when returning
+
+        Raises:
+            ValueError - wanted_address is not a valid IP address
+            IPNotFound - this interface doesn't have this IP address
+        '''
+        wanted_address = validate_and_normalize_ip(wanted_address)
+
         ips = self.get_ips()
 
         # Walk the IP table and find the specific IP we want
@@ -161,7 +200,14 @@ class NetworkInterfaceConfig(object):
         raise IPNotFound("IP not found on interface")
 
     def add_v4_ip(self, ip_address, prefix_length):
-        '''Adds an IPv4 address to this interface'''
+        '''Wrapper for add_ip - adds an IPv4 address to this interface
+
+            Args:
+                ip_address = IPv4 address to add
+                prefix_length - Network prefix size; netmask and broadcast addresses
+
+             Raises: - see add_ip()
+        '''
 
         ip_dict = {'ip_address': ip_address,
                    'family': AF_INET,
@@ -170,21 +216,41 @@ class NetworkInterfaceConfig(object):
         self.add_ip(ip_dict)
 
     def add_v6_ip(self, ip_address, prefix_length):
-        '''Adds an IPv6 address to this interface'''
+        '''Wrapper for add_ip - adds an IPv6 address to this interface
+
+            Args:
+                ip_address - IPv6 address to add
+                prefix_length - Network prefix size; netmask and broadcast addresses
+
+             Raises: - see add_ip()
+        '''
         ip_dict = {'ip_address': ip_address,
                    'family': AF_INET6,
                    'prefix_length': prefix_length}
 
         self.add_ip(ip_dict)
 
-    def add_ip(self, ip_info):
-        '''Adds an IP to an interface'''
-        check_and_normalize_ip_dict(ip_info)
+    def add_ip(self, ip_dict):
+        '''Adds an IP to an interface. Lower-level function to add an IP address
+
+        Args:
+            ip_dict - takes an IP dictionary (see get_ips) and adds it to an interface
+                      directorly
+
+        Raises:
+            ValueError
+                IP address invalid. See message for more info
+            DuplicateIPError
+                This IP is already configured
+            InterfaceConfigurationError
+                The ip_dict was valid, but the IP failed add
+        '''
+        check_and_normalize_ip_dict(ip_dict)
 
         # Throw an error if we try to add an existing address.
         existing_ip_check = None
         try:
-            existing_ip_check = self.get_full_ip_info(ip_info['ip_address'])
+            existing_ip_check = self.get_full_ip_info(ip_dict['ip_address'])
         except IPNotFound:
             pass
 
@@ -192,31 +258,46 @@ class NetworkInterfaceConfig(object):
             raise DuplicateIPError("This IP has already been assigned!")
 
         # We call add slightly differently based on socket family
-        if ip_info['family'] == AF_INET:
+        if ip_dict['family'] == AF_INET:
             self.iproute_api.addr('add',
                                   index=self.interface_index,
                                   family=AF_INET,
-                                  address=ip_info['ip_address'],
-                                  broadcast=ip_info['broadcast'],
-                                  prefixlen=ip_info['prefix_length'])
+                                  address=ip_dict['ip_address'],
+                                  broadcast=ip_dict['broadcast'],
+                                  prefixlen=ip_dict['prefix_length'])
 
-        if ip_info['family'] == AF_INET6:
+        if ip_dict['family'] == AF_INET6:
             self.iproute_api.addr('add',
                                   index=self.interface_index,
                                   family=AF_INET6,
-                                  address=ip_info['ip_address'],
-                                  prefixlen=ip_info['prefix_length'])
+                                  address=ip_dict['ip_address'],
+                                  prefixlen=ip_dict['prefix_length'])
 
         # Do a sanity check and make sure the IP actually got added
-        ip_check = self.get_full_ip_info(ip_info['ip_address'])
+        ip_check = self.get_full_ip_info(ip_dict['ip_address'])
 
-        if not (ip_check['ip_address'] == ip_info['ip_address'] and
-                ip_check['prefix_length'] == ip_info['prefix_length']):
+        if not (ip_check['ip_address'] == ip_dict['ip_address'] and
+                ip_check['prefix_length'] == ip_dict['prefix_length']):
             raise InterfaceConfigurationError("IP failed to add!")
 
-    def remove_ip(self, ip_addr):
-        '''Removes an IP from an interface'''
-        ip_address = validate_and_normalize_ip(ip_addr)
+    def remove_ip(self, ip_address):
+        '''Removes an IP from an interface. Full details are looked up via
+            get_full_ip_info for removal
+
+            Args:
+                ip_address - IP address to remove
+
+            Raises:
+                ValueError
+                    The IP address provided was invalid
+                IPNotFound
+                    The IP is not configured on this interface
+                InterfaceConfigurationError
+                    The IP address was valid, but the IP was not successfully removed
+        '''
+
+        # San check
+        ip_address = validate_and_normalize_ip(ip_address)
 
         # Get the full set of IP information
         ip_info = self.get_full_ip_info(ip_address)
@@ -237,7 +318,7 @@ class NetworkInterfaceConfig(object):
 
         # Confirm the delete. get_full_ip_info will throw an exception if it can't find it
         try:
-            self.get_full_ip_info(ip_addr)
+            self.get_full_ip_info(ip_address)
         except IPNotFound:
             # We got it!
             return
