@@ -160,20 +160,20 @@ class NetworkInterfaceConfig(object):
         # If we get here, the IP wasn't found
         raise IPNotFound("IP not found on interface")
 
-    def add_v4_ip(self, ip_addr, prefixlen):
+    def add_v4_ip(self, ip_address, prefix_length):
         '''Adds an IPv4 address to this interface'''
 
-        ip_dict = {'ip_address': ip_addr,
+        ip_dict = {'ip_address': ip_address,
                    'family': AF_INET,
-                   'prefix_length': prefixlen}
+                   'prefix_length': prefix_length}
 
         self.add_ip(ip_dict)
 
-    def add_v6_ip(self, ip_addr, prefixlen):
+    def add_v6_ip(self, ip_address, prefix_length):
         '''Adds an IPv6 address to this interface'''
-        ip_dict = {'ip_address': ip_addr,
+        ip_dict = {'ip_address': ip_address,
                    'family': AF_INET6,
-                   'prefix_length': prefixlen}
+                   'prefix_length': prefix_length}
 
         self.add_ip(ip_dict)
 
@@ -245,6 +245,12 @@ class NetworkInterfaceConfig(object):
         # Didn't get it. Throw an exception and bail
         raise InterfaceConfigurationError("IP deletion failure")
 
+    def add_default_gateway(self, gateway, prefix_length):
+        '''Adds a default gateway for a given prefix length'''
+
+    def add_static_route(self, source, destination):
+        '''Sets a static route for an interface'''
+
     def add_route(self, route_info):
         '''Adds a route for a given interface'''
 
@@ -255,7 +261,7 @@ class NetworkInterfaceConfig(object):
         '''Gets routes for an interface'''
 
         # The only way to get routes for an interface is to pull the entire routing table, and
-        # find entries for this interface. Miserable interfaces are miserable. Furthermore,
+        # filter entries for this interface. Miserable interfaces are miserable. Furthermore,
         # I can only get the v4 and v6 routes as a separate transaction
 
         # In theory, we can apply a filter to returned routes, but I can't figure out if
@@ -473,6 +479,23 @@ def validate_and_normalize_ip(ip_addr):
     '''Validates an IP address using ipaddress'''
     return str(ipaddress.ip_address(ip_addr))
 
+def confirm_valid_network(ip_network):
+    '''Confirms a network is valid for unicast assignment'''
+    if ip_network.is_loopback:
+        raise ValueError('Will not allocate loopback address')
+
+    if ip_network.is_link_local:
+        raise ValueError('Will not allocate link-local address')
+
+    if ip_network.is_multicast:
+        raise ValueError('Will not allocate multicast address')
+
+    if ip_network.is_reserved:
+        raise ValueError('Will not use reserved address space')
+
+    if ip_network.is_unspecified:
+        raise ValueError('Will not use unspecified address space')
+
 def check_and_normalize_ip_dict(ip_dict):
     '''Validates and normalize the information given in an ip_dict'''
 
@@ -491,6 +514,16 @@ def check_and_normalize_ip_dict(ip_dict):
         ip_dict['ip_address'] = str(ip_address)
         ip_dict['broadcast'] = str(ip_network.broadcast_address)
 
+        # Make sure we're not using the network address or broadcast as an actual network address
+        if ip_network.broadcast_address == ip_address:
+            raise ValueError('Refusing to add broadcast address as an IP')
+
+        if ip_network.network_address == ip_address:
+            raise ValueError('Refusing to use network address as IP due to prefix length!')
+
+        # Final checks, make sure we're not using loopback, multicast address or class E address
+        confirm_valid_network(ip_network)
+
     elif ip_dict['family'] == AF_INET6:
         # v6 is slightly similar, we just need to validate the address, and the prefix_length
         if not isinstance(ip_address, ipaddress.IPv6Address):
@@ -502,6 +535,13 @@ def check_and_normalize_ip_dict(ip_dict):
         # I've debated making this check stricter by disallowing < 32 ...
         if ip_dict['prefix_length'] < 1 or ip_dict['prefix_length'] > 128:
             raise ValueError('Invalid prefix length')
+
+        # Generate a IPv6Network object to do final confirmation tests
+        ip_network = ipaddress.ip_network(str(ip_address) + "/%s" % ip_dict['prefix_length'],
+                                          strict=False)
+
+        # Run the battery of IPv6 sanity checks
+        confirm_valid_network(ip_network)
 
     else:
         raise ValueError('Unknown protocol family')
