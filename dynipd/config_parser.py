@@ -12,15 +12,19 @@ class ConfigurationParser(object):
     def __init__(self, configuration_file):
         '''Loads the configuration file and initializes config praser'''
         self.config_parser = configparser.SafeConfigParser()
-        self.config_parser.read(configuration_file)
+
+        with open(configuration_file, 'r') as file:
+            self.config_parser.readfp(file)
+
         self._db_config = {}
+        self._load_database_configuration()
 
     def _load_database_configuration(self):
         '''Loads the database API from the config file'''
-        self._db_config['host'] = self.config_parser.get("dynip-database", "host")
-        self._db_config['user'] = self.config_parser.get("dynip-database", "user")
-        self._db_config['password'] = self.config_parser.get("dynip-database", "password")
-        self._db_config['database'] = self.config_parser.get("dynip-database", "database")
+        self._db_config['host'] = self.config_parser.get("dynipd-database", "host")
+        self._db_config['user'] = self.config_parser.get("dynipd-database", "user")
+        self._db_config['password'] = self.config_parser.get("dynipd-database", "password")
+        self._db_config['database'] = self.config_parser.get("dynipd-database", "database")
 
 
     def get_database_configuration(self):
