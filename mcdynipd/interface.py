@@ -1,5 +1,9 @@
 '''
 Network Interface Configuration
+
+This module defines the NetworkInterfaceConfig class which allows manipuating
+of IPs on a given interface, as well as related exception classess
+
 Created on Sep 16, 2015
 
 @author: mcasadevall
