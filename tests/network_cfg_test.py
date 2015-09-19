@@ -8,7 +8,7 @@ import unittest
 from socket import AF_INET, AF_INET6
 from pyroute2.iproute import IPRoute
 
-from mcdynipd.interface import NetworkInterfaceConfig, DuplicateIPError,\
+from dynipd.interface import NetworkInterfaceConfig, DuplicateIPError,\
     InvalidNetworkDevice, IPNotFound
 
 class InterfaceConfigTest(unittest.TestCase):
