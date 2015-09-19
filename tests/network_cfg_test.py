@@ -180,16 +180,16 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.get_full_ip_info("10.0.21.123")
 
     # FIXME: All code beyond this point needs implement
-    def test_add_v4_route(self):
-        '''Adds an IPv4 route and validates it was added successfully'''
-        interface_cfg = NetworkInterfaceConfig('dummy0')
+    #def test_add_v4_route(self):
+    #    '''Adds an IPv4 route and validates it was added successfully'''
+    #    interface_cfg = NetworkInterfaceConfig('dummy0')
 
-    def test_v4_remove_route(self):
-        '''Removes an IPv4 route and validates it was removed successfully'''
-
-    def test_get_routes(self):
-        '''Tests that get_routes works properly for v4 and v6 addresses'''
-        interface_cfg = NetworkInterfaceConfig('eth0')
+    #def test_v4_remove_route(self):
+    #    '''Removes an IPv4 route and validates it was removed successfully'''
+    #
+    #def test_get_routes(self):
+    #    '''Tests that get_routes works properly for v4 and v6 addresses'''
+    #    interface_cfg = NetworkInterfaceConfig('eth0')
         #interface_cfg.get_routes()
 
 if __name__ == "__main__":

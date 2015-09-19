@@ -332,15 +332,19 @@ class NetworkInterfaceConfig(object):
 
     def add_default_gateway(self, gateway, prefix_length):
         '''Adds a default gateway for a given prefix length'''
+        raise NotImplementedError
 
     def add_static_route(self, source, destination):
         '''Sets a static route for an interface'''
+        raise NotImplementedError
 
     def add_route(self, route_info):
         '''Adds a route for a given interface'''
+        raise NotImplementedError
 
     def remove_route(self, route_info):
         '''Removes a route from an interface'''
+        raise NotImplementedError
 
     def get_routes(self):
         '''Gets routes for an interface'''
@@ -402,9 +406,11 @@ class NetworkInterfaceConfig(object):
 
     def determine_if_route_exists(self):
         '''Checks if a route exists'''
+        raise NotImplementedError
 
     def validate_route_dict(self):
         '''Validates a routing information dict'''
+        raise NotImplementedError
 
     def _filter_routing_table(self, routing_table):
         '''Internal API. Takes output of get_routes, and filters down to what we care about'''
