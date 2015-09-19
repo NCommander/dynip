@@ -1,1 +1,11 @@
+# INI file should be manually forced to prevent passwords from going in
 dynipd.ini
+
+# Python cache files
+*.pyc
+__pycache__
+
+# Eclipse project files
+.project
+.settings
+.pydevproject
