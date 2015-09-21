@@ -32,6 +32,7 @@ class ValidationAndNormlization(object):
 
         if ip_network.is_unspecified:
             raise ValueError('Will not use unspecified address space')
+        return ip_network
 
     @staticmethod
     def validate_and_normalize_ip_dict(ip_dict):
@@ -83,3 +84,5 @@ class ValidationAndNormlization(object):
 
         else:
             raise ValueError('Unknown protocol family')
+
+        return ip_dict
