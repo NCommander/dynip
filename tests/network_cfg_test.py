@@ -4,6 +4,7 @@ Created on Sep 16, 2015
 @author: mcasadevall
 '''
 
+import os
 import unittest
 from socket import AF_INET, AF_INET6
 from pyroute2.iproute import IPRoute
@@ -29,11 +30,13 @@ class InterfaceConfigTest(unittest.TestCase):
         self.iproute_api.link_remove(idx)
         self.iproute_api.close()
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_nonexistent_interface(self):
         '''Tests that InvalidNetworkDevice is raised if an interface is non-existent'''
         with self.assertRaises(InvalidNetworkDevice):
             NetworkInterfaceConfig('nonexistent0')
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_empty_configuration(self):
         '''Confirms that we properly handle no configuration data on an interface'''
         # The interface has just been created as part of setup, there shouldn't be any IPs
@@ -42,6 +45,7 @@ class InterfaceConfigTest(unittest.TestCase):
         if interface_cfg.get_ips():
             self.fail("dummy configuration returned an IP!")
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_add_ipv4(self):
         '''Adds an IPv4 address, and then confirms it via get_ips()'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -58,6 +62,7 @@ class InterfaceConfigTest(unittest.TestCase):
         self.assertEqual(ips[0]['broadcast'], '10.0.241.255', "IP assignment failure!")
         self.assertEqual(ips[0]['prefix_length'], 24, "IP assignment failure!")
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_add_ipv6(self):
         '''Adds an IPv6 address and then confirms it'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -70,6 +75,7 @@ class InterfaceConfigTest(unittest.TestCase):
 
         # FIXME: Write tests using different IPv6 notations
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_remove_ipv6(self):
         '''Removes an IPv6 address and confirms it'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -79,6 +85,7 @@ class InterfaceConfigTest(unittest.TestCase):
         if interface_cfg.get_ips():
             self.fail("dummy configuration returned an IP!")
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_duplicate_ip_failure(self):
         '''Tests duplicate address protection'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -89,6 +96,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='10.0.241.123',
                                     prefix_length=24)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_remove_ipv4(self):
         '''Tests interface deconfiguration of v4 addresses'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -102,6 +110,7 @@ class InterfaceConfigTest(unittest.TestCase):
         if interface_cfg.get_ips():
             self.fail("dummy configuration returned an IP!")
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_invalid_ip_check(self):
         '''Makes sure we raise ValueError on if we pass in an invalid IP'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -109,6 +118,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='ImNotAnIP!',
                                     prefix_length=1337)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_network_address_rejection(self):
         '''Prefixes >/24 require a dedicated network address that can't be used as an IP'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -117,6 +127,7 @@ class InterfaceConfigTest(unittest.TestCase):
                                     prefix_length=26)
 
     # pylint: disable=invalid-name
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_broadcast_address_rejection(self):
         '''Rejects if we try using a broadcast address of a prefix'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -124,6 +135,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='192.168.1.191',
                                     prefix_length=26)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv4_loopback_address_rejection(self):
         '''Rejects if we try using a loopback address'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -131,6 +143,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='127.0.1.2',
                                     prefix_length=24)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv4_multicast_rejection(self):
         '''Reject if we try to assign a multicast address'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -138,6 +151,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='224.0.0.1',
                                     prefix_length=24)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv4_class_e_rejection(self):
         '''Reject if we try to use a class E address'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -145,6 +159,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='240.0.0.1',
                                     prefix_length=24)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv4_link_local_rejection(self):
         '''Reject if we try to use a link-local address'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -152,6 +167,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v4_ip(ip_address='169.254.1.1',
                                     prefix_length=24)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv6_loopback_address_reject(self):
         '''Rejects if we try to assign loopback'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -159,6 +175,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v6_ip(ip_address='::1',
                                     prefix_length=128)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv6_multicast_reject(self):
         '''Rejects if address is IPv6 multicast'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -166,6 +183,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v6_ip(ip_address="ff05::1:3",
                                     prefix_length=128)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_ipv6_reserved_reject(self):
         '''Rejects if the IP is in reserved address space'''
         interface_cfg = NetworkInterfaceConfig('dummy0')
@@ -173,6 +191,7 @@ class InterfaceConfigTest(unittest.TestCase):
             interface_cfg.add_v6_ip(ip_address='dead:beef::',
                                     prefix_length=64)
 
+    @unittest.skipIf(os.getuid() != 0, 'must be run as root')
     def test_check_for_nonexistent_ip(self):
         '''Tests IPNotFound response when getting information for a specific IP'''
         interface_cfg = NetworkInterfaceConfig('dummy0')

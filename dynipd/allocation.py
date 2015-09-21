@@ -7,10 +7,8 @@ Created on Sep 19, 2015
 class Allocation(object):
     '''An allocation is a block of IP or IPs that a machine can use'''
 
-    def __init__(self):
-        '''
-        Constructor
-        '''
+    def __init__(self, ip_range):
+        '''Create a new allocation based on this range'''
 
     def get_status(self):
         '''Reports the status of all IPs within a block'''
