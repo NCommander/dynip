@@ -41,7 +41,7 @@ class Allocation(object):
                 self._mark_broadcast_address()
                 self._mark_network_address()
 
-    def get_status(self):
+    def get_usage(self):
         '''Reports the status of all IPs within a block'''
         saner_dict = {}
         for ip_offset, status in sorted(self._allocation_utilization.items()):

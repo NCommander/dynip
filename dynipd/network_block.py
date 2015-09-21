@@ -6,6 +6,7 @@ Created on Sep 20, 2015
 
 import ipaddress
 from socket import AF_INET, AF_INET6
+from dynipd.validation import ValidationAndNormlization as check
 
 class NetworkBlock(object):
     '''A NetworkBlock represents an object from the network_topologies table
@@ -28,7 +29,11 @@ class NetworkBlock(object):
         Raises:
             ValueError - if a network block has invalid information'''
 
+        self._network_block_utilization = {}
+        self._next_allocation = 0
+
         self.network_id = network_dict['id']
+        self.network_name = network_dict['name']
         self.family = network_dict['protocol']
         self.location = network_dict['location']
         self.network = ipaddress.ip_network(network_dict['network'], strict=True)
@@ -36,8 +41,7 @@ class NetworkBlock(object):
         self.reserved_blocks = network_dict['reserved_blocks']
 
         # Sanity check ourselves
-        if not (self.family == AF_INET or self.family == AF_INET6):
-            raise ValueError('Will not work on family beside AF_INET or AF_INET6')
+        check.is_valid_ip_family(self.family)
 
         # Work out some values based on family size, and make sure our allocation is sane
         if self.family == AF_INET:
@@ -49,11 +53,25 @@ class NetworkBlock(object):
                 raise ValueError('Allocation prefix size is too large!')
 
         # We can calculate the number of hosts by doing powers of 2 math
-        self.total_number_of_allocations = 2**(self.allocation_size-self.network.prefixlen)
+        self._total_number_of_allocations = 2**(self.allocation_size-self.network.prefixlen)
 
-        # If we're IPv4, we need remove one available host for the broadcast address
+        # In all cases, we need to handle the network address
+        self._mark_network_address()
+
+        # If we're IPv4, we need handle the broadcast address
         if self.family == AF_INET:
-            self.total_number_of_allocations -= 1
+            self._mark_broadcast_address()
 
-def get_num_of_hosts(self):
-    pass
+    def _mark_network_address(self):
+        '''Marks the network address in an _allocation'''
+
+        # The network address is always the first one of a block so ...
+        self._network_block_utilization.update({0 : 'NETWORK_ADDRESS'})
+        self._next_allocation += 1
+
+    # pylint: disable=line-too-long
+    def _mark_broadcast_address(self):
+        '''Removes the broadcast address out of the network block dict'''
+        # The broadcast address is top of the block
+        self._network_block_utilization.update({self._total_number_of_allocations : 'BROADCAST_ADDRESS'})
+

@@ -11,9 +11,34 @@ class ValidationAndNormlization(object):
     '''Catch-all for validationing information'''
 
     @staticmethod
+    def is_valid_ip_family(family):
+        '''Confirmed a family is AF_INET or AF_INET6'''
+        if not (family == AF_INET or family == AF_INET6):
+            raise ValueError('Unknown family error')
+
+        return family
+
+    @staticmethod
+    def validate_and_normalize_ip_network(ip_network):
+        '''Validates a CIDR network and normalizes it'''
+        return str(ipaddress.ip_network(ip_network))
+
+    @staticmethod
     def validate_and_normalize_ip(ip_addr):
         '''Validates an IP address using ipaddress'''
         return str(ipaddress.ip_address(ip_addr))
+
+    @staticmethod
+    def is_valid_prefix_size(prefix_length, family):
+        '''Checks that the prefix is valid for the family'''
+        if family == AF_INET:
+            if prefix_length < 1 or prefix_length > 128:
+                raise ValueError('Invalid prefix length')
+
+        if family == AF_INET6:
+            if prefix_length < 1 or prefix_length > 128:
+                raise ValueError('Invalid prefix length')
+        return prefix_length
 
     @staticmethod
     def confirm_valid_network(ip_network):
@@ -60,6 +85,10 @@ class ValidationAndNormlization(object):
             if ip_network.network_address == ip_address:
                 raise ValueError('Refusing to use network address as IP due to prefix length!')
 
+            # Make sure prefix length is sane
+            ValidationAndNormlization.is_valid_prefix_size(ip_dict['prefix_length'],
+                                                           ip_dict['family'])
+
             # Final checks, make sure we're not using loopback, multicast address or class E address
             ValidationAndNormlization.confirm_valid_network(ip_network)
 
@@ -72,8 +101,8 @@ class ValidationAndNormlization(object):
             ip_dict['ip_address'] = str(ip_address)
 
             # I've debated making this check stricter by disallowing < 32 ...
-            if ip_dict['prefix_length'] < 1 or ip_dict['prefix_length'] > 128:
-                raise ValueError('Invalid prefix length')
+            ValidationAndNormlization.is_valid_prefix_size(ip_dict['prefix_length'],
+                                                           ip_dict['family'])
 
             # Generate a IPv6Network object to do final confirmation tests
             ip_network = ipaddress.ip_network(str(ip_address) + "/%s" % ip_dict['prefix_length'],
