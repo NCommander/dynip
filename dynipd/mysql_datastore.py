@@ -44,24 +44,25 @@ class MySQLDataStore(object):
     def create_machine(self, name, token):
         '''Creates a machine in the database'''
 
-    def create_network(self, name, location, protocol, network, allocation_size, reserved_blocks):
+    def create_network(self, name, location, family, network, allocation_size, reserved_blocks):
         # pylint: disable=too-many-arguments
         '''Creates a network in the database'''
 
         # Argument validation
-        check.is_valid_ip_family(protocol)
+        check.is_valid_ip_family(family)
         network = check.validate_and_normalize_ip_network(network)
+        check.is_valid_prefix_size(allocation_size, family)
 
         cnx = self.mysql_pool.get_connection()
         cursor = cnx.cursor()
         query = '''INSERT INTO network_topology VALUES (network_name=%s," .
                                                         location=%s,
-                                                        protocol=%d,
+                                                        family=%d,
                                                         network=%s,
                                                         allocation_size=%d,
                                                         reserved_blocks=%s)'''
 
-        cursor.execute(query, (name, location, protocol, network, allocation_size,
+        cursor.execute(query, (name, location, family, network, allocation_size,
                                reserved_blocks))
         cnx.close()
 

@@ -62,7 +62,7 @@ CREATE TABLE `network_topology` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `location` varchar(255) NOT NULL,
-  `protocol` tinyint(4) NOT NULL,
+  `family` tinyint(4) NOT NULL,
   `network` varchar(255) NOT NULL,
   `allocation_size` int(11) NOT NULL,
   `reserved_blocks` text NOT NULL,
