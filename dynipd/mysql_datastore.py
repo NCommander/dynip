@@ -43,6 +43,12 @@ class MySQLDataStore(object):
 
     def create_machine(self, name, token):
         '''Creates a machine in the database'''
+        cnx = self.mysql_pool.get_connection()
+        cursor = cnx.cursor()
+        query = '''INSERT INTO machine_info VALUES (name=%s,
+                                                    token=%s)'''
+        cursor.execute(query, (name, token))
+        cnx.close()
 
     def create_network(self, name, location, family, network, allocation_size, reserved_blocks):
         # pylint: disable=too-many-arguments
@@ -55,22 +61,12 @@ class MySQLDataStore(object):
 
         cnx = self.mysql_pool.get_connection()
         cursor = cnx.cursor()
-        query = '''INSERT INTO network_topology VALUES (network_name=%s," .
-                                                        location=%s,
-                                                        family=%d,
-                                                        network=%s,
-                                                        allocation_size=%d,
-                                                        reserved_blocks=%s)'''
+        query = '''INSERT INTO network_topology (name, location, family, network, allocation_size,
+                                                 reserved_blocks) VALUES (%s, %s, %s,%s, %s, %s)'''
 
-        cursor.execute(query, (name, location, family, network, allocation_size,
+        cursor.execute(query, (name, location, int(family), network, allocation_size,
                                reserved_blocks))
-        cnx.close()
-
-    def create_allocation(self, network_id, allocation):
-        '''Creates an allocation for a machine'''
-        cnx = self.mysql_pool.get_connection()
-        cursor = cnx.cursor()
-
+        cnx.commit()
         cnx.close()
 
     def _refresh_network_topogoly(self):

@@ -59,7 +59,7 @@ DROP TABLE IF EXISTS `network_topology`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `network_topology` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(11) AUTO_INCREMENT DEFAULT NULL,
   `name` varchar(255) NOT NULL,
   `location` varchar(255) NOT NULL,
   `family` tinyint(4) NOT NULL,
@@ -67,7 +67,7 @@ CREATE TABLE `network_topology` (
   `allocation_size` int(11) NOT NULL,
   `reserved_blocks` text NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
