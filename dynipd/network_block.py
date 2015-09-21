@@ -10,18 +10,16 @@ from socket import AF_INET, AF_INET6
 class NetworkBlock(object):
     '''A NetworkBlock represents an object from the network_topologies table
 
-    NetworkBlocks are made up of Allocations(), the size of which is defined
-    by the allocation_size parameter. The NetworkBlock keeps track of the total
-    amount of allocations, generates new Allocations() as necessary, and
-    does sanity checking to make sure the state doesn't get in.
+    NetworkBlocks are made up of Allocations(), the size of which is defined by the allocation_size
+    parameter. The NetworkBlock keeps track of the total amount of allocations, generates new
+    Allocations() as necessary, and does sanity checking to make sure the state doesn't get in.
 
-    Internally, all allocations are kept in a dict, with the dict being
-    the location within a block. For example, if we're managing 192.0.2.0/24,
-    with an allocation size of 32 (one IP), that gives us a total of 255 valid
-    allocations (the broadcast address requires special handling). If a client
-    gets IP 192.0.2.124, that's stored as allocation[124]. This allows us to
-    not keep unallocated blocks in memory (if we were doing IPv6 allocations,
-    a /48 has 65565 valid /64 blocks!)
+    Internally, all allocations are kept in a dict, with the dict being the location within
+    a block. For example, if we're managing 192.0.2.0/24, with an allocation size of 32
+    (one IP), that gives us a total of 254 valid allocations (the and network broadcast
+    address requires special handling). If a client gets IP 192.0.2.124, that's stored
+    as allocation[124]. This allows us to not keep unallocated blocks in memory (if we
+    were doing IPv6 allocations,  a /48 has 65565 valid /64 blocks!)
     '''
 
     def __init__(self, network_dict):
