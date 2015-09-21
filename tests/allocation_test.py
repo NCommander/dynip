@@ -11,7 +11,9 @@ class AllocationTest(unittest.TestCase):
 
     def testCreateIPv4Allocation(self):
         '''Creates a basic IPv4 allocation'''
-        Allocation('192.0.2.0/32')
+        a =Allocation('192.0.2.32/27')
+        a.get_usage()
+        a.get_status()
 
     def testCreateIPv6Allocation(self):
         '''Creates a basic IPv6 allocation'''
