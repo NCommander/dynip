@@ -6,7 +6,7 @@ Created on Sep 19, 2015
 '''
 
 import mysql.connector
-from dynipd.network import NetworkBlock
+from dynipd.network_block import NetworkBlock
 
 class MySQLDataStore(object):
     '''Implements the data storage model on a MySQL database'''
@@ -36,6 +36,3 @@ class MySQLDataStore(object):
 
         for row in cursor:
             self.networks[row['id']] = NetworkBlock(row)
-
-        import pprint
-        pprint.pprint(self.networks)
