@@ -29,6 +29,7 @@ class TestDatastore(unittest.TestCase):
         # Initialize our data store; on initialization, it will pull
         # configuration settings like network topology
         self.datastore = MySQLDataStore(cfg_file.get_database_configuration('dynipd-test'))
+        self.datastore.load_file_into_database('sql/schema.sql')
 
     def tearDown(self):
         pass
