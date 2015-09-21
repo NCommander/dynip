@@ -24,15 +24,18 @@ DROP TABLE IF EXISTS `allocated_blocks`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `allocated_blocks` (
   `allocation_id` int(11) NOT NULL AUTO_INCREMENT,
+  `allocated_block` varchar(37) NOT NULL,
   `network_id` int(11) NOT NULL,
   `machine_id` int(11) NOT NULL,
+  `status` ENUM('UNMANAGED', 'RESERVED', 'STANDBY', 'ACTIVE_UTILIZATION') NOT NULL,
+  `reservation_expires` datetime NOT NULL,
   PRIMARY KEY (`allocation_id`),
   UNIQUE KEY `allocation_id` (`allocation_id`),
   KEY `network_id` (`network_id`),
   KEY `network_id_idx_fkey` (`network_id`),
   KEY `machine_id` (`machine_id`),
   CONSTRAINT `machine_id_fkey` FOREIGN KEY (`machine_id`) REFERENCES `machine_info` (`id`),
-  CONSTRAINT `network_id_fkey` FOREIGN KEY (`network_id`) REFERENCES `allocated_blocks` (`network_id`)
+  CONSTRAINT `network_id_fkey` FOREIGN KEY (`network_id`) REFERENCES `network_topology` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -63,7 +66,7 @@ CREATE TABLE `network_topology` (
   `name` varchar(255) NOT NULL,
   `location` varchar(255) NOT NULL,
   `family` tinyint(4) NOT NULL,
-  `network` varchar(255) NOT NULL,
+  `network` varchar(37) NOT NULL,
   `allocation_size` int(11) NOT NULL,
   `reserved_blocks` text NOT NULL,
   PRIMARY KEY (`id`)

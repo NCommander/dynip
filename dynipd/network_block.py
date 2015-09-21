@@ -34,7 +34,7 @@ class NetworkBlock(object):
         self._network_block_utilization = {}
         self._next_allocation = 0
 
-        self.network_id = network_dict['id']
+        self._network_id = network_dict['id']
         self.network_name = network_dict['name']
         self.family = network_dict['family']
         self.location = network_dict['location']
@@ -74,7 +74,13 @@ class NetworkBlock(object):
         if self.family == AF_INET:
             self._mark_broadcast_address()
 
-    def get_new_allocation_for_machine(self, machine):
+    def get_id(self):
+        '''Returns database ID number'''
+        import pprint
+        pprint.pprint(self._network_id)
+        return self._network_id
+
+    def get_new_allocation(self):
         '''Retrieves the next allocation available for a machine'''
 
         # Check if our pointer is currently pointed at a free allocation
@@ -89,6 +95,8 @@ class NetworkBlock(object):
         unusued_allocation = AllocationServerSide(next_network, self.datastore)
         self._network_block_utilization.update({self._next_allocation: unusued_allocation})
         self._next_allocation += 1
+
+        return unusued_allocation
 
     def _mark_network_address(self):
         '''Marks the network address in an _allocation'''

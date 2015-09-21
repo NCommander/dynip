@@ -41,17 +41,18 @@ class TestDatastore(unittest.TestCase):
         self.datastore.create_machine('TestMachine3', 'sometoken')
         self.datastore.create_network('Minecraft:LOC', 'TestNet', AF_INET, '10.0.2.0/24', 32, '')
         self.datastore.create_network('Minecraft:LOC2', 'TestNet', AF_INET, '10.0.3.0/24', 32, '')
-        self.datastore.create_network('Minecraft:LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
-                                       64, '')
+        #self.datastore.create_network('Minecraft:LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
+        #                               64, '')
 
     def tearDown(self):
         pass
 
-
-    def testMachineClass(self):
-        '''Confirms the Machine class can read the data store, do authetication, and gets IDs'''
+    def testBlockAllocations(self):
+        '''Tests that blocks can be allocated to machines, and IP statuses set'''
 
         # NOTE: this relays on the behavior of MySQL AUTO_INCREMENT to predict IDs
+
+        # Test the machine class here
         machine = Machine('TestMachine', self.datastore)
         self.assertEquals(machine.get_id(), 1)
         self.assertEquals(machine.get_name(), 'TestMachine')
@@ -64,14 +65,10 @@ class TestDatastore(unittest.TestCase):
         self.assertEquals(machine.get_id(), 2)
         self.assertEquals(machine.get_name(), 'TestMachine2')
 
-    def testName(self):
+        machine = Machine('TestMachine', self.datastore)
         networks = self.datastore.get_networks()
         network = networks.pop()
-        network.get_new_allocation_for_machine('')
-        network.get_new_allocation_for_machine('')
-        network.get_new_allocation_for_machine('')
-        network.get_new_allocation_for_machine('')
-
+        self.datastore.assign_new_allocation(machine, network)
 
 
 if __name__ == "__main__":

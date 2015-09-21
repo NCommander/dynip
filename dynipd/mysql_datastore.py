@@ -8,6 +8,8 @@ Created on Sep 19, 2015
 import mysql.connector
 from dynipd.network_block import NetworkBlock
 from dynipd.validation import ValidationAndNormlization as check
+from dynipd.server.allocation import AllocationServerSide
+from dynipd.server.machine import Machine
 
 class MySQLDataStore(object):
     '''Implements the data storage model on a MySQL database'''
@@ -66,8 +68,33 @@ class MySQLDataStore(object):
         # Update our state information to see the new network
         self.refresh_network_topogoly()
 
-    def assign_allocation(self, machine, network, allocation):
-        '''Assigns an from a machine to an allocation to a machine'''
+    def assign_new_allocation(self, machine, network_block):
+        '''Assigns an a new allocation to a machine'''
+
+        # Sanity check the input
+        if not isinstance(machine, Machine):
+            raise ValueError('machine is not Machine object')
+        if not isinstance(network_block, NetworkBlock):
+            raise ValueError('network must be NetworkBlock object')
+
+        # First get our allocation
+        new_allocation = network_block.get_new_allocation()
+
+        cnx = self.mysql_pool.get_connection()
+        cursor = cnx.cursor()
+        query = '''INSERT INTO allocated_blocks (allocated_block, network_id, machine_id, status,
+                   reservation_expires) VALUES
+                   (%s, %s, %s, 'RESERVED', ADDTIME(NOW(), '00:05:00'))'''
+
+        cursor.execute(query, (new_allocation.get_network_block(),
+                               network_block.get_id(),
+                               machine.get_id()))
+
+        cnx.commit()
+        cnx.close()
+
+        # Return the allocation+ID to the caller
+        return new_allocation
 
     def get_networks(self):
         '''Returns a list of networks'''
@@ -115,3 +142,4 @@ class MySQLDataStore(object):
         for row in result: #@UnusedVariable
             pass
         cnx.close()
+

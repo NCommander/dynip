@@ -13,7 +13,7 @@ class Allocation(object):
 
     def __init__(self, ip_range):
         '''Create a new _allocation based on this range'''
-
+        self.allocation_id = None
         self._allocation_utilization = {}
 
         # Do the usual validation and sanity check
@@ -42,6 +42,18 @@ class Allocation(object):
 
             if self.family == AF_INET:
                 self._mark_broadcast_address()
+
+    def set_id(self, allocation_id):
+        '''Sets the ID from the database to the object'''
+        self.allocation_id = allocation_id
+
+    def get_id(self):
+        '''Returns stored database ID, or None if one hasn't been assigned'''
+        return self.allocation_id
+
+    def get_network_block(self):
+        '''Returns string of the CIDR representation of the block'''
+        return str(self._allocation)
 
     def get_usage(self):
         '''Reports the status of all IPs within a block'''
