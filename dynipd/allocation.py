@@ -33,13 +33,15 @@ class Allocation(object):
         self._total_number_of_ip = 2**(address_size-self._allocation.prefixlen)
         self._available_ips = self._total_number_of_ip
 
-        # If we're IPv4, the network address and broadcast addresses are unusable within a block.
+        # The network address is unusable in IPv4, and for our sanity, mark it
+        # unusable in IPv6 (dealing with b1oc:: as a valid IP is bleh)
         #
-        # Go forth and mark them as such
+        # If we're IPv4, the  broadcast addresses is unusable within a block.
         if self._total_number_of_ip != 1:
+            self._mark_network_address()
+
             if self.family == AF_INET:
                 self._mark_broadcast_address()
-                self._mark_network_address()
 
     def get_usage(self):
         '''Reports the status of all IPs within a block'''
