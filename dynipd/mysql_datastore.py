@@ -26,12 +26,8 @@ class MySQLDataStore(object):
 
     def create_machine(self, name, token):
         '''Creates a machine in the database'''
-        cnx = self.mysql_pool.get_connection()
-        cursor = cnx.cursor()
-        query = '''INSERT INTO machine_info (name, token) VALUES (%s, %s)'''
-        cursor.execute(query, (name, token))
-        cnx.commit()
-        cnx.close()
+        query = 'INSERT INTO machine_info (name, token) VALUES (%s, %s)'
+        self._do_insert(query, (name,token))
 
     def get_machine(self, name):
         '''Retrieves a machine from the database'''
@@ -80,18 +76,15 @@ class MySQLDataStore(object):
         # First get our allocation
         new_allocation = network_block.get_new_allocation()
 
-        cnx = self.mysql_pool.get_connection()
-        cursor = cnx.cursor()
         query = '''INSERT INTO allocated_blocks (allocated_block, network_id, machine_id, status,
                    reservation_expires) VALUES
                    (%s, %s, %s, 'RESERVED', ADDTIME(NOW(), '00:05:00'))'''
 
-        cursor.execute(query, (new_allocation.get_network_block(),
-                               network_block.get_id(),
-                               machine.get_id()))
+        allocation_id = self._do_insert(query,  (new_allocation.get_network_block(),
+                                                 network_block.get_id(),
+                                                 machine.get_id()))
 
-        cnx.commit()
-        cnx.close()
+        new_allocation.set_id(allocation_id)
 
         # Return the allocation+ID to the caller
         return new_allocation
@@ -143,3 +136,12 @@ class MySQLDataStore(object):
             pass
         cnx.close()
 
+    def _do_insert(self, query, argument_tuple):
+        '''Wrapper for doing INSERTs. Returns lastrowid'''
+        cnx = self.mysql_pool.get_connection()
+        cursor = cnx.cursor()
+        cursor.execute(query, argument_tuple)
+        cnx.commit()
+        cnx.close()
+
+        return cursor.lastrowid
