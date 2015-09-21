@@ -7,12 +7,16 @@ import unittest
 from dynipd.config_parser import ConfigurationParser
 import sys
 import configparser
+from dynipd.server.machine import Machine
 from dynipd.mysql_datastore import MySQLDataStore
 from socket import AF_INET, AF_INET6
 
 
 class TestDatastore(unittest.TestCase):
+    '''Loads up the data store with example data (which is reset through setUp) for each test
 
+    Because NetworkBlock and Allocation are highly connected to the datastore, they get tested
+    through this test file as well'''
 
     def setUp(self):
         '''Load test database configuration'''
@@ -32,6 +36,9 @@ class TestDatastore(unittest.TestCase):
         self.datastore = MySQLDataStore(cfg_file.get_database_configuration('dynipd-test'))
         self.datastore.load_file_into_database('sql/schema.sql')
 
+        self.datastore.create_machine('TestMachine', 'sometoken')
+        self.datastore.create_machine('TestMachine2', 'sometoken')
+        self.datastore.create_machine('TestMachine3', 'sometoken')
         self.datastore.create_network('Minecraft:LOC', 'TestNet', AF_INET, '10.0.2.0/24', 32, '')
         self.datastore.create_network('Minecraft:LOC2', 'TestNet', AF_INET, '10.0.3.0/24', 32, '')
         self.datastore.create_network('Minecraft:LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
@@ -41,8 +48,30 @@ class TestDatastore(unittest.TestCase):
         pass
 
 
+    def testMachineClass(self):
+        '''Confirms the Machine class can read the data store, do authetication, and gets IDs'''
+
+        # NOTE: this relays on the behavior of MySQL AUTO_INCREMENT to predict IDs
+        machine = Machine('TestMachine', self.datastore)
+        self.assertEquals(machine.get_id(), 1)
+        self.assertEquals(machine.get_name(), 'TestMachine')
+
+        machine = Machine('TestMachine3', self.datastore)
+        self.assertEquals(machine.get_id(), 3)
+        self.assertEquals(machine.get_name(), 'TestMachine3')
+
+        machine = Machine('TestMachine2', self.datastore)
+        self.assertEquals(machine.get_id(), 2)
+        self.assertEquals(machine.get_name(), 'TestMachine2')
+
     def testName(self):
-        pass
+        networks = self.datastore.get_networks()
+        network = networks.pop()
+        network.get_new_allocation_for_machine('')
+        network.get_new_allocation_for_machine('')
+        network.get_new_allocation_for_machine('')
+        network.get_new_allocation_for_machine('')
+
 
 
 if __name__ == "__main__":
