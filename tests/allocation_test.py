@@ -1,0 +1,22 @@
+'''
+Created on Sep 20, 2015
+
+@author: mcasadevall
+'''
+import unittest
+from dynipd.allocation import Allocation
+
+class AllocationTest(unittest.TestCase):
+    '''Tests the Allocation class'''
+
+    def testCreateIPv4Allocation(self):
+        '''Creates a basic IPv4 allocation'''
+        Allocation('192.0.2.0/32')
+
+    def testCreateIPv6Allocation(self):
+        '''Creates a basic IPv6 allocation'''
+        Allocation('fd00:a3b1:78a2::/64')
+
+if __name__ == "__main__":
+    #import sys;sys.argv = ['', 'Test.testName']
+    unittest.main()
