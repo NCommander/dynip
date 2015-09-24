@@ -6,8 +6,8 @@ Created on Sep 20, 2015
 import unittest
 from dynipd.allocation import Allocation
 
-class AllocationTest(unittest.TestCase):
-    '''Tests the Allocation class'''
+class AllocationServerSideTest(unittest.TestCase):
+    '''Tests the AllocationServerSide class'''
 
     def testCreateIPv4Allocation(self):
         '''Creates a basic IPv4 allocation'''

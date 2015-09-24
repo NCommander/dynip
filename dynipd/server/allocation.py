@@ -29,7 +29,7 @@ class AllocationServerSide(Allocation):
             raise ValueError(('%s is not UNALLOCATED' % (str(ip_address),) ))
 
         # We're good, create the allocation
-        offset = int(ip_address)-int(self._allocation_start)
+        offset = self._calculate_offset(ip_address)
 
         ip_status = {}
         ip_status['status'] = 'RESERVED'
