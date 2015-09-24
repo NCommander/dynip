@@ -55,6 +55,17 @@ class Allocation(object):
             if self.family == AF_INET:
                 self._mark_broadcast_address()
 
+    def __eq__(self, other):
+        '''Tests if two allocations are equal'''
+
+        # FIXME: this needs to be more indepth check
+
+        # Currently allocations are equal if their CIDR range matches
+        if (self.get_allocation_cidr() == other.get_allocation_cidr()):
+            return True
+
+        return False
+
     def set_id(self, allocation_id):
         '''Sets the ID from the database to the object'''
         self.allocation_id = allocation_id
