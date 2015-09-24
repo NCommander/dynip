@@ -29,17 +29,6 @@ class MySQLDataStore(object):
         query = 'INSERT INTO machine_info (name, token) VALUES (%s, %s)'
         self._do_insert(query, (name,token))
 
-    def get_machine(self, name):
-        '''Retrieves a machine from the database'''
-        cnx = self.mysql_pool.get_connection()
-        cursor = cnx.cursor(dictionary=True)
-        query = '''SELECT * FROM machine_info WHERE name=%s'''
-        cursor.execute(query, (name,))
-        machine_dict = cursor.fetchone()
-        cnx.close()
-
-        return machine_dict
-
     def create_network(self, name, location, family, network, allocation_size, reserved_blocks):
         # pylint: disable=too-many-arguments
         '''Creates a network in the database'''
@@ -109,18 +98,6 @@ class MySQLDataStore(object):
                                 status,
                                 reservation_status))
 
-    def get_networks(self):
-        '''Returns a list of networks'''
-
-        network_list = []
-        # We don't want to return the internal dict because someone might do something stupid with
-        # it, especially because it exposes the id number. So build a list and return that
-
-        for network in self._networks.values():
-            network_list.append(network)
-
-        return network_list
-
     def refresh_network_topogoly(self):
         '''Updates the network topology in the database'''
 
@@ -136,6 +113,41 @@ class MySQLDataStore(object):
             self._networks[row['id']] = NetworkBlock(row, self)
 
         cnx.close()
+
+    def get_machine(self, name):
+        '''Retrieves a machine from the database'''
+        cnx = self.mysql_pool.get_connection()
+        cursor = cnx.cursor(dictionary=True)
+        query = '''SELECT * FROM machine_info WHERE name=%s'''
+        cursor.execute(query, (name,))
+        machine_dict = cursor.fetchone()
+        cnx.close()
+
+        return machine_dict
+
+    def get_network_by_name(self, network_name):
+        '''Returns the network with a given name'''
+        network_list = self.get_networks()
+
+        for network in network_list:
+            if network_name == network.get_name():
+                return network
+
+        # Network not found
+        raise ValueError('Network does not exist')
+
+    def get_networks(self):
+        '''Returns a list of networks'''
+
+        network_list = []
+        # We don't want to return the internal dict because someone might do something stupid with
+        # it, especially because it exposes the id number. So build a list and return that
+
+        for network in self._networks.values():
+            network_list.append(network)
+
+        return network_list
+
 
     # Helper for test code; used to load the schema into a test database
     def load_file_into_database(self, filename):
