@@ -93,6 +93,13 @@ class NetworkBlock(object):
         if self.family == AF_INET:
             self._mark_broadcast_address()
 
+    def __eq__(self, other):
+        '''Compares two different NetworkBlocks'''
+        if self.get_id() == other.get_id():
+            return True
+
+        return False
+
     def get_id(self):
         '''Returns database ID number'''
         return self._network_id
@@ -106,6 +113,14 @@ class NetworkBlock(object):
         new_allocation = self._get_new_allocation(machine)
         return new_allocation
 
+    def remove_allocation(self, ip_allocation, fatal=True):
+        '''Deletes an allocation'''
+
+        # Sanity check our arguments
+        if not isinstance(ip_allocation, AllocationServerSide):
+            raise ValueError('ip_allocation must be AllocationServerSide')
+        ip_network = ipaddress.ip_network(ip_allocation.get_allocation_cidr(), strict=True)
+
     def _get_new_allocation(self, machine):
         '''Retrieves the next allocation available for a machine'''
 
@@ -118,9 +133,6 @@ class NetworkBlock(object):
                 break
 
         # If we can't get an allocation, the block is full, raise an error
-        import pprint
-        pprint.pprint(self._network_block_utilization)
-
         if not next_allocation:
             raise NetworkBlockFull('No more allocations open in this block')
 
