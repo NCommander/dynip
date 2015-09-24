@@ -6,6 +6,7 @@ Created on Sep 19, 2015
 '''
 
 import mysql.connector
+from dynipd.server.allocation import AllocationServerSide
 from dynipd.network_block import NetworkBlock
 from dynipd.validation import ValidationAndNormlization as check
 from dynipd.server.machine import Machine
@@ -58,7 +59,7 @@ class MySQLDataStore(object):
         # Update our state information to see the new network
         self.refresh_network_topogoly()
 
-    def assign_new_allocation(self, machine, network_block):
+    def assign_new_allocation(self, network_block, machine, new_allocation):
         '''Assigns an a new allocation to a machine'''
 
         # Sanity check the input
@@ -66,9 +67,8 @@ class MySQLDataStore(object):
             raise ValueError('machine is not Machine object')
         if not isinstance(network_block, NetworkBlock):
             raise ValueError('network must be NetworkBlock object')
-
-        # First get our allocation
-        new_allocation = network_block.get_new_allocation(machine)
+        if not isinstance(new_allocation, AllocationServerSide):
+            raise ValueError('new_allocation must be AllocationServerSide')
 
         query = '''INSERT INTO allocated_blocks (allocated_block, network_id, machine_id, status,
                    reservation_expires) VALUES
@@ -82,6 +82,34 @@ class MySQLDataStore(object):
 
         # Return the allocation+ID to the caller
         return new_allocation
+
+    def set_ip_status(self, ip_address, status, allocation, machine):
+        '''Sets an IP status to reserved in the database'''
+
+        # Sanity check our input
+        ip_address = check.validate_and_normalize_ip(ip_address)
+        if not isinstance(allocation, AllocationServerSide):
+            raise ValueError('Invalid Allocation object')
+        if not isinstance(machine, Machine):
+            raise ValueError('Invalid Machine object')
+        if not (status == 'UNMANAGED' or
+                status == 'RESERVED' or
+                status == 'STANDBY' or
+                status == 'ACTIVE_UTILIZATION'):
+            raise ValueError('Invalid status for IP')
+
+        # We use REPLACE to make sure statuses are always accurate to the server. In case
+        # of conflict, the server is always the correct source of information
+        query = '''REPLACE INTO ip_allocations (from_allocation, allocated_to, ip_address,
+                   status, reservation_expires) VALUES (%s, %s, %s, %s, %s)'''
+
+        # reservation status is null unless we're going to/from RESERVED
+        reservation_status = 'NULL'
+        self._do_insert(query, (allocation.get_id(),
+                                machine.get_id(),
+                                ip_address,
+                                status,
+                                reservation_status))
 
     def get_networks(self):
         '''Returns a list of networks'''

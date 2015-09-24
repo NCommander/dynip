@@ -96,7 +96,13 @@ class NetworkBlock(object):
         '''Returns database ID number'''
         return self._network_id
 
-    def get_new_allocation(self, machine):
+    def create_new_allocation(self, machine):
+        '''Creates a new allocation and assigns it to a machine'''
+        new_allocation = self._get_new_allocation(machine)
+        self.datastore.assign_new_allocation(self, machine, new_allocation)
+        return new_allocation
+
+    def _get_new_allocation(self, machine):
         '''Retrieves the next allocation available for a machine'''
 
         # Find the next open IP by walking the struct for the first gap
@@ -119,11 +125,12 @@ class NetworkBlock(object):
         next_address = self.network.network_address + self._block_seperator*next_allocation
         next_network = ipaddress.ip_network(('%s/%s') % (next_address, self.allocation_size))
 
-        unusued_allocation = AllocationServerSide(next_network, machine, self, self.datastore)
+        unusued_allocation = AllocationServerSide(next_network, self, machine, self.datastore)
         self._network_block_utilization.update({self._next_allocation: unusued_allocation})
         self._next_allocation += 1
 
         return unusued_allocation
+
 
     def _mark_network_address(self):
         '''Marks the network address in an _allocation'''

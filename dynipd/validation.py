@@ -6,6 +6,7 @@ Created on Sep 20, 2015
 
 import ipaddress
 from socket import AF_INET, AF_INET6
+from twisted.internet import address
 
 class ValidationAndNormlization(object):
     '''Catch-all for validationing information'''
@@ -17,6 +18,21 @@ class ValidationAndNormlization(object):
             raise ValueError('Unknown family error')
 
         return family
+
+    @staticmethod
+    def is_ip_within_block(ip_address, ip_network):
+        '''Checks that an IP is within a given CIDR block'''
+
+        # If we got a string, create the right objects
+        if isinstance(ip_address, str):
+            ip_address = ipaddress.ip_address(ip_address)
+        if isinstance(ip_network, str):
+            ip_network = ipaddress.ip_network(ip_network, strict=True)
+
+        # Create an IPvXNetwork from the address
+        ip_network_origin = ipaddress.ip_network(ip_address)
+
+        return ip_network.overlaps(ip_network_origin)
 
     @staticmethod
     def validate_and_normalize_ip_network(ip_network):

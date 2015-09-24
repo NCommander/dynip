@@ -93,25 +93,37 @@ class Allocation(object):
 
             return saner_dict
 
-    def mark_ip_as_reserved(self):
+    def mark_ip_as_reserved(self, ip_address):
         '''Moves an IP from unused to reserved'''
         raise NotImplementedError('Must be subclassed')
 
-    def move_ip_to_standby(self):
+    def move_ip_to_standby(self, ip_address):
         '''Moves an IP to standby status'''
         raise NotImplementedError('Must be subclassed')
 
-    def move_ip_as_utilized(self):
+    def move_ip_as_utilized(self, ip_address):
         '''Moves an IP to standby status'''
         raise NotImplementedError('Must be subclassed')
 
-    def return_ip_to_standby(self):
+    def return_ip_to_standby(self, ip_address):
         '''Returns an IP to standby if its not being used'''
         raise NotImplementedError('Must be subclassed')
 
-    def return_ip_to_unused(self):
+    def return_ip_to_unused(self, ip_address):
         '''Returns an IP to unused'''
         raise NotImplementedError('Must be subclassed')
+
+    def _confirm_ip_is_unused(self, ip_address):
+        '''Confirms an IP is unused within an allocation'''
+        ip_address = ipaddress.ip_address(ip_address)
+
+        offset = int(ip_address)-int(self._allocation_start)
+
+        # if its not in the dict, its unused
+        if not offset in self._allocation_utilization:
+            return True
+
+        return False
 
     def _mark_network_address(self):
         '''Marks the network address in an _allocation'''
@@ -127,3 +139,7 @@ class Allocation(object):
         # The broadcast address is top of the block
         self._allocation_utilization.update({self._total_number_of_ip : 'BROADCAST_ADDRESS'})
         self._available_ips =- 1
+
+    def _calculate_offset(self, ip_address):
+        '''Returns the offset within the dict of a given IP'''
+        return int(ip_address)-int(self._allocation_start)
