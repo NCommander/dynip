@@ -1,3 +1,5 @@
+# pylint: disable=invalid-name
+
 '''
 Created on Sep 20, 2015
 
@@ -38,34 +40,40 @@ class AllocationServerSideTest(unittest.TestCase):
         cls.datastore.create_machine('TestMachine', 'sometoken')
         cls.datastore.create_machine('TestMachine2', 'sometoken')
         cls.datastore.create_machine('TestMachine3', 'sometoken')
-        cls.datastore.create_network('Minecraft:LOC', 'TestNet', AF_INET, '10.0.2.0/24', 32, '')
-        cls.datastore.create_network('Minecraft:LOC2', 'TestNet', AF_INET, '10.0.3.0/24', 32, '')
-        cls.datastore.create_network('Minecraft:LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
+        cls.datastore.create_network('LOC', 'TestNet', AF_INET, '10.0.2.0/24', 32, '')
+        cls.datastore.create_network('LOC2', 'TestNet', AF_INET, '10.0.3.0/24', 32, '')
+        cls.datastore.create_network('LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
                                        64, '')
 
 
-    def testCreateIPv4Allocations(self):
+    def test_create_and_delete_ipv4_allocations(self):
         '''Creates a basic IPv4 allocation'''
         datastore = self.__class__.datastore
 
         # First, get our machine and create an allocation
         machine = Machine('TestMachine', self.datastore)
-        ipv4_network = datastore.get_network_by_name('Minecraft:LOC')
+        ipv4_network = datastore.get_network_by_name('LOC')
         allocation = ipv4_network.create_new_allocation(machine)
 
         # NetworkBlock should assign us 10.0.2.1/32
         self.assertEquals(allocation.get_allocation_cidr(), '10.0.2.1/32', 'Did not get 10.0.2.1')
 
-    def testCreateIPv6Allocation(self):
+        unusued_ip = allocation.get_unused_ip()
+        allocation.mark_ip_as_reserved(unusued_ip)
+
+        # Now try to remove it
+        allocation.remove()
+
+    def test_create_and_delete_ipv6_allocation(self):
         '''Create a basic IPv6 allocation'''
         datastore = self.__class__.datastore
 
         # First, get our machine and create an allocation
         machine = Machine('TestMachine', self.datastore)
-        ipv4_network = datastore.get_network_by_name('Minecraft:LOCv6')
-        allocation = ipv4_network.create_new_allocation(machine)
+        ipv6_network = datastore.get_network_by_name('LOCv6')
+        allocation = ipv6_network.create_new_allocation(machine)
 
-        # NetworkBlock should assign us 10.0.2.1/32
+        # NetworkBlock should assign us fd00:a3b1:78a2:1::/64
         self.assertEquals(allocation.get_allocation_cidr(),
                           'fd00:a3b1:78a2:1::/64',
                           'Did not get fd00:a3b1:78a2:1::/64')
