@@ -17,6 +17,10 @@ class AllocationServerSide(Allocation):
         self._network_block = network_block
         self._machine = machine
 
+    def get_network_block(self):
+        '''Returns the network block assoicated with this allocation'''
+        return self._network_block
+
     def mark_ip_as_reserved(self, ip_to_reserve):
         '''Moves an IP from unused to reserved'''
 

@@ -99,7 +99,6 @@ class NetworkBlock(object):
     def create_new_allocation(self, machine):
         '''Creates a new allocation and assigns it to a machine'''
         new_allocation = self._get_new_allocation(machine)
-        self.datastore.assign_new_allocation(self, machine, new_allocation)
         return new_allocation
 
     def _get_new_allocation(self, machine):
@@ -129,6 +128,8 @@ class NetworkBlock(object):
         self._network_block_utilization.update({self._next_allocation: unusued_allocation})
         self._next_allocation += 1
 
+        # Assoicate the allocation with a machine
+        machine.add_allocation(unusued_allocation)
         return unusued_allocation
 
 

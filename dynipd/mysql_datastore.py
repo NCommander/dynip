@@ -59,14 +59,12 @@ class MySQLDataStore(object):
         # Update our state information to see the new network
         self.refresh_network_topogoly()
 
-    def assign_new_allocation(self, network_block, machine, new_allocation):
+    def assign_new_allocation(self, machine, new_allocation):
         '''Assigns an a new allocation to a machine'''
 
         # Sanity check the input
         if not isinstance(machine, Machine):
             raise ValueError('machine is not Machine object')
-        if not isinstance(network_block, NetworkBlock):
-            raise ValueError('network must be NetworkBlock object')
         if not isinstance(new_allocation, AllocationServerSide):
             raise ValueError('new_allocation must be AllocationServerSide')
 
@@ -75,7 +73,7 @@ class MySQLDataStore(object):
                    (%s, %s, %s, 'RESERVED', ADDTIME(NOW(), '00:05:00'))'''
 
         allocation_id = self._do_insert(query,  (new_allocation.get_allocation_cidr(),
-                                                 network_block.get_id(),
+                                                 new_allocation.get_network_block().get_id(),
                                                  machine.get_id()))
 
         new_allocation.set_id(allocation_id)
