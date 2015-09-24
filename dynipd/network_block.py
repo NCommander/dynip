@@ -80,21 +80,26 @@ class NetworkBlock(object):
         # that the network address and broadcast address of a block are unusable. Allocation
         # handles this case for >/32 blocks, but we need to handle it here otherwise.
 
-        if self._block_seperator == 1:
-            # IP ranges are 0-255. Powers of two math gets us 256, so drop it by one so everything
-            # else ends up in the right ranges
-            self._total_number_of_allocations -= 1
+        # FIXME: Confirm this logic is sane ...
 
-            # In all cases, we need to handle the network address
-            self._mark_network_address()
+        # IP ranges are 0-255. Powers of two math gets us 256, so drop it by one so everything
+        # else ends up in the right ranges
+        self._total_number_of_allocations -= 1
 
-            # If we're IPv4, we need handle the broadcast address
-            if self.family == AF_INET:
-                self._mark_broadcast_address()
+        # In all cases, we need to handle the network address
+        self._mark_network_address()
+
+        # If we're IPv4, we need handle the broadcast address
+        if self.family == AF_INET:
+            self._mark_broadcast_address()
 
     def get_id(self):
         '''Returns database ID number'''
         return self._network_id
+
+    def get_name(self):
+        '''Returns the name of this network'''
+        return self.network_name
 
     def create_new_allocation(self, machine):
         '''Creates a new allocation and assigns it to a machine'''
@@ -113,6 +118,9 @@ class NetworkBlock(object):
                 break
 
         # If we can't get an allocation, the block is full, raise an error
+        import pprint
+        pprint.pprint(self._network_block_utilization)
+
         if not next_allocation:
             raise NetworkBlockFull('No more allocations open in this block')
 
