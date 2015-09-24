@@ -36,8 +36,6 @@ class AllocationServerSide(Allocation):
         ip_status['reserved_until'] = None
         self._allocation_utilization.update({offset: ip_status})
 
-        import pprint
-        pprint.pprint(self._machine)
         # Now update the database with our reservation
         self._datastore.set_ip_status(ip_address, 'RESERVED', self, self._machine)
 

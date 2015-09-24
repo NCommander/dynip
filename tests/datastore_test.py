@@ -18,7 +18,8 @@ class TestDatastore(unittest.TestCase):
     Because NetworkBlock and Allocation are highly connected to the datastore, they get tested
     through this test file as well'''
 
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         '''Load test database configuration'''
         # Make sure our config file is kosher
         cfg_file = None
@@ -33,15 +34,15 @@ class TestDatastore(unittest.TestCase):
 
         # Initialize our data store; on initialization, it will pull
         # configuration settings like network topology
-        self.datastore = MySQLDataStore(cfg_file.get_database_configuration('dynipd-test'))
-        self.datastore.load_file_into_database('sql/schema.sql')
+        cls.datastore = MySQLDataStore(cfg_file.get_database_configuration('dynipd-test'))
+        cls.datastore.load_file_into_database('sql/schema.sql')
 
-        self.datastore.create_machine('TestMachine', 'sometoken')
-        self.datastore.create_machine('TestMachine2', 'sometoken')
-        self.datastore.create_machine('TestMachine3', 'sometoken')
-        self.datastore.create_network('Minecraft:LOC', 'TestNet', AF_INET, '10.0.2.0/24', 32, '')
-        self.datastore.create_network('Minecraft:LOC2', 'TestNet', AF_INET, '10.0.3.0/24', 32, '')
-        #self.datastore.create_network('Minecraft:LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
+        cls.datastore.create_machine('TestMachine', 'sometoken')
+        cls.datastore.create_machine('TestMachine2', 'sometoken')
+        cls.datastore.create_machine('TestMachine3', 'sometoken')
+        cls.datastore.create_network('Minecraft:LOC', 'TestNet', AF_INET, '10.0.2.0/24', 32, '')
+        cls.datastore.create_network('Minecraft:LOC2', 'TestNet', AF_INET, '10.0.3.0/24', 32, '')
+        #cls.datastore.create_network('Minecraft:LOCv6', 'TestNet', AF_INET6, 'fd00:a3b1:78a2::/48',
         #                               64, '')
 
     def tearDown(self):
@@ -66,11 +67,10 @@ class TestDatastore(unittest.TestCase):
         self.assertEquals(machine.get_name(), 'TestMachine2')
 
         machine = Machine('TestMachine', self.datastore)
-        networks = self.datastore.get_networks()
+        networks = self.__class__.datastore.get_networks()
         network = networks.pop()
         allocation = network.create_new_allocation(machine)
         unusued_ip = allocation.get_unused_ip()
-        allocation.mark_ip_as_reserved(unusued_ip)
         allocation.mark_ip_as_reserved(unusued_ip)
 
 if __name__ == "__main__":
