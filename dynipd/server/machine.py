@@ -25,7 +25,7 @@ class Machine(object):
         return self._name
 
     def add_allocation(self, ip_allocation):
-        '''Assoicates an allocation with this Machine object'''
+        '''Associates an allocation with this Machine object'''
 
         # Connect this allocation to this machine
         self._datastore.assign_new_allocation(self, ip_allocation)
@@ -33,3 +33,22 @@ class Machine(object):
         # FIXME, make sure we don't add an allocation twice
         self._allocations.append(ip_allocation)
 
+    def remove_allocation(self, ip_allocation, fatal=True):
+        '''Removes an allocation associates with this machine'''
+
+        try:
+            allocation_idx = self._allocations.index(ip_allocation)
+        except ValueError:
+            # If we're OK with non-fatal, return false, else re-raise
+            if fatal:
+                return False
+            else:
+                raise ValueError('Allocation not associated with this machine')
+
+
+        # Attempt to delete allocation; a sanity check will cause to this to fail
+        # if there are any open IP allocations
+        allocation = self._allocations[allocation_idx]
+        self._datastore.remove_allocation_assignment(allocation)
+
+        
