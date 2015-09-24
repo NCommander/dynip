@@ -70,6 +70,23 @@ class MySQLDataStore(object):
         # Return the allocation+ID to the caller
         return new_allocation
 
+    def remove_allocation_assignment(self, ip_allocation):
+        '''Removes an allocation from the database'''
+
+        # Validate parameters
+        if not isinstance(ip_allocation, AllocationServerSide):
+            raise ValueError('new_allocation must be AllocationServerSide')
+
+        query = '''DELETE FROM allocated_blocks WHERE allocation_id = %s LIMIT 1'''
+
+        try:
+            count = self._do_delete(query, (ip_allocation.get_id(),))
+        except mysql.connector.errors.IntegrityError:
+            raise ValueError('Allocation is actively used!')
+
+        if count != 1:
+            raise ValueError('Allocation did not exist!')
+
     def set_ip_status(self, ip_address, status, allocation, machine):
         '''Sets an IP status to reserved in the database'''
 
@@ -168,12 +185,25 @@ class MySQLDataStore(object):
             pass
         cnx.close()
 
-    def _do_insert(self, query, argument_tuple):
-        '''Wrapper for doing INSERTs. Returns lastrowid'''
+    def _do_query(self, query, argument_tuple):
+        '''Wrapper for doing queries. Returns dict with status info'''
         cnx = self.mysql_pool.get_connection()
         cursor = cnx.cursor()
         cursor.execute(query, argument_tuple)
         cnx.commit()
         cnx.close()
 
-        return cursor.lastrowid
+        results = {}
+        results['lastrowid'] = cursor.lastrowid
+        results['rowcount'] = cursor.rowcount
+        return results
+
+    def _do_insert(self, query, argument_tuple):
+        '''Wrapper for doing INSERTs, returns lastrowid'''
+        results = self._do_query(query, argument_tuple)
+        return results['lastrowid']
+
+    def _do_delete(self, query, argument_tuple):
+        '''Wrapper for doing DELETEs, returns rowcount'''
+        results = self._do_query(query, argument_tuple)
+        return results['rowcount']
