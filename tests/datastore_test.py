@@ -68,8 +68,11 @@ class TestDatastore(unittest.TestCase):
         machine = Machine('TestMachine', self.datastore)
         networks = self.datastore.get_networks()
         network = networks.pop()
-        self.datastore.assign_new_allocation(machine, network)
+        allocation = self.datastore.assign_new_allocation(machine, network)
 
+        import pprint
+        pprint.pprint(allocation._allocation)
+        pprint.pprint(allocation.get_unused_ip())
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']

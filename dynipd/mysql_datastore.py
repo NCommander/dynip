@@ -8,7 +8,6 @@ Created on Sep 19, 2015
 import mysql.connector
 from dynipd.network_block import NetworkBlock
 from dynipd.validation import ValidationAndNormlization as check
-from dynipd.server.allocation import AllocationServerSide
 from dynipd.server.machine import Machine
 
 class MySQLDataStore(object):
@@ -50,16 +49,11 @@ class MySQLDataStore(object):
         check.is_valid_prefix_size(allocation_size, family)
 
         # FIXME: make sure we're not trying to add ourselves twice
-
-        cnx = self.mysql_pool.get_connection()
-        cursor = cnx.cursor()
         query = '''INSERT INTO network_topology (name, location, family, network, allocation_size,
                                                  reserved_blocks) VALUES (%s, %s, %s,%s, %s, %s)'''
 
-        cursor.execute(query, (name, location, int(family), network, allocation_size,
+        self._do_insert(query, (name, location, int(family), network, allocation_size,
                                reserved_blocks))
-        cnx.commit()
-        cnx.close()
 
         # Update our state information to see the new network
         self.refresh_network_topogoly()
@@ -74,13 +68,13 @@ class MySQLDataStore(object):
             raise ValueError('network must be NetworkBlock object')
 
         # First get our allocation
-        new_allocation = network_block.get_new_allocation()
+        new_allocation = network_block.get_new_allocation(machine)
 
         query = '''INSERT INTO allocated_blocks (allocated_block, network_id, machine_id, status,
                    reservation_expires) VALUES
                    (%s, %s, %s, 'RESERVED', ADDTIME(NOW(), '00:05:00'))'''
 
-        allocation_id = self._do_insert(query,  (new_allocation.get_network_block(),
+        allocation_id = self._do_insert(query,  (new_allocation.get_allocation_cidr(),
                                                  network_block.get_id(),
                                                  machine.get_id()))
 

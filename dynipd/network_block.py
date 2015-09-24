@@ -9,6 +9,14 @@ from socket import AF_INET, AF_INET6
 from dynipd.validation import ValidationAndNormlization as check
 from dynipd.server.allocation import AllocationServerSide
 
+class NetworkBlockFull(Exception):
+    '''A NetworkBlock is out of allocations to hand out'''
+    def __init__(self, value):
+        super(NetworkBlockFull, self).__init__(value)
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 class NetworkBlock(object):
     '''A NetworkBlock represents an object from the network_topologies table
 
@@ -67,32 +75,51 @@ class NetworkBlock(object):
         # raised to 0 becomes 1.
         self._block_seperator = 2**(total_length_of_an_ip-self.allocation_size)
 
-        # In all cases, we need to handle the network address
-        self._mark_network_address()
+        # Depending on the size of the block, and our family, there are some allocations
+        # that aren't valid. If we're handing out /32 addresses, we need to take in account
+        # that the network address and broadcast address of a block are unusable. Allocation
+        # handles this case for >/32 blocks, but we need to handle it here otherwise.
 
-        # If we're IPv4, we need handle the broadcast address
-        if self.family == AF_INET:
-            self._mark_broadcast_address()
+        if self._block_seperator == 1:
+            # IP ranges are 0-255. Powers of two math gets us 256, so drop it by one so everything
+            # else ends up in the right ranges
+            self._total_number_of_allocations -= 1
+
+            # In all cases, we need to handle the network address
+            self._mark_network_address()
+
+            # If we're IPv4, we need handle the broadcast address
+            if self.family == AF_INET:
+                self._mark_broadcast_address()
 
     def get_id(self):
         '''Returns database ID number'''
-        import pprint
-        pprint.pprint(self._network_id)
         return self._network_id
 
-    def get_new_allocation(self):
+    def get_new_allocation(self, machine):
         '''Retrieves the next allocation available for a machine'''
 
-        # Check if our pointer is currently pointed at a free allocation
-        if self._next_allocation in self._network_block_utilization:
-            # Nope, need to find an open allocation
-            # FIXME: Implement
-            pass
+        # Find the next open IP by walking the struct for the first gap
+        next_allocation = None
 
-        next_address = self.network.network_address + self._block_seperator*self._next_allocation
+        for pointer in range(0, self._total_number_of_allocations):
+            if not pointer in self._network_block_utilization:
+                next_allocation = pointer
+                break
+
+        # If we can't get an allocation, the block is full, raise an error
+        if not next_allocation:
+            raise NetworkBlockFull('No more allocations open in this block')
+
+        # Internally, _network_block_utilization is essentially an offset; the 0 block is
+        # the network address, then the start of the next allocation is _block_seperator
+        # (which is the size of an allocation as an integer) * next allocation
+
+        # Knowing that, calculating next_address and next_network is easy
+        next_address = self.network.network_address + self._block_seperator*next_allocation
         next_network = ipaddress.ip_network(('%s/%s') % (next_address, self.allocation_size))
 
-        unusued_allocation = AllocationServerSide(next_network, self.datastore)
+        unusued_allocation = AllocationServerSide(next_network, machine, self, self.datastore)
         self._network_block_utilization.update({self._next_allocation: unusued_allocation})
         self._next_allocation += 1
 
@@ -103,7 +130,6 @@ class NetworkBlock(object):
 
         # The network address is always the first one of a block so ...
         self._network_block_utilization.update({0 : 'NETWORK_ADDRESS'})
-        self._next_allocation += 1
 
     # pylint: disable=line-too-long
     def _mark_broadcast_address(self):

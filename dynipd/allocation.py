@@ -8,6 +8,14 @@ import ipaddress
 from dynipd.validation import ValidationAndNormlization as check
 from _socket import AF_INET, AF_INET6
 
+class AllocationFull(Exception):
+    '''An Allocation is out of allocations to hand out'''
+    def __init__(self, value):
+        super(AllocationFull, self).__init__(value)
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 class Allocation(object):
     '''An _allocation is a block of IP or IPs that a machine can use'''
 
@@ -15,6 +23,10 @@ class Allocation(object):
         '''Create a new _allocation based on this range'''
         self.allocation_id = None
         self._allocation_utilization = {}
+
+        # _allocation_status refers to the status of a block as a whole. It is equal to the
+        # highest status of any IP within a block
+        self._allocation_status = 'UNALLOCATED'
 
         # Do the usual validation and sanity check
         self._allocation = check.confirm_valid_network(ipaddress.ip_network(ip_range, strict=True))
@@ -51,9 +63,27 @@ class Allocation(object):
         '''Returns stored database ID, or None if one hasn't been assigned'''
         return self.allocation_id
 
-    def get_network_block(self):
+    def get_allocation_cidr(self):
         '''Returns string of the CIDR representation of the block'''
         return str(self._allocation)
+
+    def get_unused_ip(self):
+        '''Returns an unallocated IP from the allocation'''
+
+        # Find the next open IP by walking the struct for the first gap
+        next_ip = None
+
+        for pointer in range(0, self._total_number_of_ip):
+            if not pointer in self._allocation_utilization:
+                next_ip = pointer
+                break
+
+        if next_ip == None: # Zero can be a valid offset
+            raise AllocationFull('No unused IPs in block')
+
+        # A little IP math later, and we have our address
+        return self._allocation_start+next_ip
+
 
     def get_usage(self):
         '''Reports the status of all IPs within a block'''

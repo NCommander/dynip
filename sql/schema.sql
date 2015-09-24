@@ -40,6 +40,27 @@ CREATE TABLE `allocated_blocks` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `ip_allocations`
+--
+
+DROP TABLE IF EXISTS `ip_allocations`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `ip_allocations` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `from_allocation` int(11) NOT NULL,
+  `allocated_to` int(11) NOT NULL,
+  `ip_address` varchar(37) NOT NULL,
+  `status` enum('UNMANAGED','RESERVED','STANDBY','ACTIVE_UTILIZATION') NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `allocation_id` (`from_allocation`),
+  KEY `allocated_to` (`allocated_to`),
+  CONSTRAINT `allocated_to_fkey` FOREIGN KEY (`allocated_to`) REFERENCES `machine_info` (`id`),
+  CONSTRAINT `from_allocation_fkey` FOREIGN KEY (`from_allocation`) REFERENCES `allocated_blocks` (`allocation_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `machine_info`
 --
 
