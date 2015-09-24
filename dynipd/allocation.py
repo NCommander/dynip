@@ -61,7 +61,7 @@ class Allocation(object):
         # FIXME: this needs to be more indepth check
 
         # Currently allocations are equal if their CIDR range matches
-        if (self.get_allocation_cidr() == other.get_allocation_cidr()):
+        if self.get_allocation_cidr() == other.get_allocation_cidr():
             return True
 
         return False
