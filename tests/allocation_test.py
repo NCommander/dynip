@@ -11,14 +11,14 @@ from dynipd.server.allocation import Allocation
 class TestAllocation(unittest.TestCase):
     '''Tests base class Allocation's methods'''
 
-    def test_comparsion_true(self):
+    def test_equal_comparsion(self):
         '''Confirms two Allocations match each other'''
         allocation1 = Allocation('192.0.2.1/32')
         allocation2 = Allocation('192.0.2.1/32')
 
         self.assertEqual((allocation1 == allocation2), True, 'Same allocations do not match!')
 
-    def test_not_equal(self):
+    def test_not_equal_comparsion(self):
         '''Confirms two Allocations do not match each other'''
         allocation1 = Allocation('192.0.2.1/32')
         allocation2 = Allocation('192.0.2.2/32')
