@@ -18,8 +18,15 @@ class AllocationServerSide(Allocation):
         self._machine = machine
 
     def get_network_block(self):
-        '''Returns the network block assoicated with this allocation'''
+        '''Returns the network block associated with this allocation'''
         return self._network_block
+
+    def remove(self):
+        '''Deletes this allocation'''
+
+        # FIXME: Do not attempt deletion unless we've got no unused IPs
+        self._network_block.remove_allocation(self)
+        self._machine.remove_allocation(self)
 
     def mark_ip_as_reserved(self, ip_to_reserve):
         '''Moves an IP from unused to reserved'''
