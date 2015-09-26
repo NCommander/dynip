@@ -126,6 +126,10 @@ class MySQLDataStore(object):
         query = "SELECT * FROM network_topology ORDER BY id"
         cursor.execute(query)
 
+        # Clear out the network store
+        # FIXME: this doesn't seem right
+
+        self._networks = {}
         for row in cursor:
             self._networks[row['id']] = NetworkBlock(row, self)
 
