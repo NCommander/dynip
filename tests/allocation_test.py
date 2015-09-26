@@ -25,6 +25,17 @@ class TestAllocation(unittest.TestCase):
 
         self.assertEqual((allocation1 == allocation2), False, 'Different allocations match!')
 
+    def test_is_empty(self):
+        '''Tests that an allocation reports empty if there are no used IPs'''
+        allocation = Allocation('192.0.2.1/32')
+        self.assertEqual(allocation.is_empty(), True, 'Allocation falsely reported its fulL!')
+
+        # Now stick an IP and try again
+        next_ip = allocation.get_unused_ip()
+        allocation.mark_ip_as_reserved(next_ip)
+
+        self.assertEqual(allocation.is_empty(), False, 'Allocation falsely reports its empty')
+
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()
