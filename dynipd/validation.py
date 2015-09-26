@@ -6,7 +6,6 @@ Created on Sep 20, 2015
 
 import ipaddress
 from socket import AF_INET, AF_INET6
-from twisted.internet import address
 
 class ValidationAndNormlization(object):
     '''Catch-all for validationing information'''
@@ -33,6 +32,22 @@ class ValidationAndNormlization(object):
         ip_network_origin = ipaddress.ip_network(ip_address)
 
         return ip_network.overlaps(ip_network_origin)
+
+    @staticmethod
+    def do_cidr_blocks_overlap(block1, block2):
+        '''Checks if a CIDR block overlaps with one another'''
+        # If we got a string, create the right objects
+        if isinstance(block1, str):
+            block1 = ipaddress.ip_network(block1)
+        if isinstance(block2, str):
+            block2 = ipaddress.ip_network(block2, strict=True)
+
+        return block1.overlaps(block2)
+
+    @staticmethod
+    def validate_ip_network(ip_network):
+        '''Validates a CIDR network and normalizes it'''
+        return ipaddress.ip_network(ip_network, strict=True)
 
     @staticmethod
     def validate_and_normalize_ip_network(ip_network):
