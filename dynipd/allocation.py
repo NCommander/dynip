@@ -16,6 +16,14 @@ class AllocationFull(Exception):
     def __str__(self):
         return repr(self.value)
 
+class AllocationNotEmpty(Exception):
+    '''An attempt was made to try and remove() an allocation with in use IPs'''
+    def __init__(self, value):
+        super(AllocationNotEmpty, self).__init__(value)
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 class Allocation(object):
     '''An _allocation is a block of IP or IPs that a machine can use'''
 
@@ -66,6 +74,12 @@ class Allocation(object):
 
         return False
 
+    def remove(self):
+        '''Deletes this allocation (this has to be subclassed to do anything useful)'''
+        # A remove attempt is only valid if an allocation is empty
+        if not self.is_empty():
+            raise AllocationNotEmpty('An allocation must not have any IPs in use before remove()')
+
     def set_id(self, allocation_id):
         '''Sets the ID from the database to the object'''
         self.allocation_id = allocation_id
@@ -95,18 +109,43 @@ class Allocation(object):
         # A little IP math later, and we have our address
         return self._allocation_start+next_ip
 
-
     def get_usage(self):
         '''Reports the status of all IPs within a block'''
         saner_dict = {}
         for ip_offset, status in sorted(self._allocation_utilization.items()):
-            saner_dict.update({(self._allocation_start+ip_offset): status})
+            # Broadcast/Network are internal; we don't report them if they're in use.
+            if status != 'BROADCAST_ADDRESS' or status != 'NETWORK_ADDRESS':
+                saner_dict.update({(self._allocation_start+ip_offset): status})
 
-            return saner_dict
+        return saner_dict
 
-    def mark_ip_as_reserved(self, ip_address):
+    def is_empty(self):
+        '''Reports if an allocation is empty'''
+        if len(self.get_usage()):
+            return False
+
+        return True
+
+    def mark_ip_as_reserved(self, ip_to_reserve):
         '''Moves an IP from unused to reserved'''
-        raise NotImplementedError('Must be subclassed')
+        # Check that this is a valid IP for this allocation
+        ip_address = ipaddress.ip_address(ip_to_reserve)
+        if not check.is_ip_within_block(ip_address, self._allocation):
+            raise ValueError('ip_address not within allocation')
+
+        if not self._confirm_ip_is_unused(ip_address):
+            raise ValueError(('%s is not UNALLOCATED' % (str(ip_address),) ))
+
+        # We're good, create the allocation
+        offset = self._calculate_offset(ip_address)
+
+        ip_status = {}
+        ip_status['status'] = 'RESERVED'
+        ip_status['reserved_until'] = None
+        self._allocation_utilization.update({offset: ip_status})
+
+        # We return the validated ip_address for postprocessing by the parent class
+        return ip_address
 
     def move_ip_to_standby(self, ip_address):
         '''Moves an IP to standby status'''
