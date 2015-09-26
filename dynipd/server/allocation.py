@@ -23,29 +23,26 @@ class AllocationServerSide(Allocation):
 
     def remove(self):
         '''Deletes this allocation'''
+        super().remove()
 
-        # FIXME: Do not attempt deletion unless we've got no unused IPs
-        self._network_block.remove_allocation(self)
-        self._machine.remove_allocation(self)
+        # Remove the allocation from the NetworkBlock and the Machine objects
+        #
+        # This is done via protected members as these functions only check that their arguments
+        # are correct, not that the allocation is unused. Since we're in the same package, I'm
+        # just overriding the protected-access war
+
+        # pylint: disable=protected-access
+        self._network_block._remove_allocation_assoication(self)
+        self._machine._remove_allocation_assoication(self)
+        # pylint: enable=protected-access
+
+        # Remove us from the database
+        self._datastore.remove_allocation_assignment(self)
+
 
     def mark_ip_as_reserved(self, ip_to_reserve):
-        '''Moves an IP from unused to reserved'''
-
-        # Check that this is a valid IP for this allocation
-        ip_address = ipaddress.ip_address(ip_to_reserve)
-        if not check.is_ip_within_block(ip_address, self._allocation):
-            raise ValueError('ip_address not within allocation')
-
-        if not self._confirm_ip_is_unused(ip_address):
-            raise ValueError(('%s is not UNALLOCATED' % (str(ip_address),) ))
-
-        # We're good, create the allocation
-        offset = self._calculate_offset(ip_address)
-
-        ip_status = {}
-        ip_status['status'] = 'RESERVED'
-        ip_status['reserved_until'] = None
-        self._allocation_utilization.update({offset: ip_status})
+        '''Marks an IP as used and updates the database'''
+        ip_address = super().mark_ip_as_reserved(ip_to_reserve)
 
         # Now update the database with our reservation
         self._datastore.set_ip_status(ip_address, 'RESERVED', self, self._machine)

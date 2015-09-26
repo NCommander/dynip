@@ -33,22 +33,19 @@ class Machine(object):
         # FIXME, make sure we don't add an allocation twice
         self._allocations.append(ip_allocation)
 
-    def remove_allocation(self, ip_allocation, fatal=True):
-        '''Removes an allocation associates with this machine'''
+    def list_allocations(self):
+        '''Returns a copy of the allocations with this Machine'''
+        return self._allocations.copy()
 
+    def _remove_allocation_assoication(self, ip_allocation):
+        '''Removes an allocation from the _allocation table. Called from Allocation.remove()'''
         try:
             allocation_idx = self._allocations.index(ip_allocation)
         except ValueError:
             # If we're OK with non-fatal, return false, else re-raise
-            if fatal:
-                return False
-            else:
-                raise ValueError('Allocation not associated with this machine')
+            raise ValueError('Allocation not associated with this machine')
 
+        # We unconditionally remove; we should only be called from Allocation.remove()
+        # which handles safety checks
+        self._allocations.pop(allocation_idx)
 
-        # Attempt to delete allocation; a sanity check will cause to this to fail
-        # if there are any open IP allocations
-        allocation = self._allocations[allocation_idx]
-        self._datastore.remove_allocation_assignment(allocation)
-
-        

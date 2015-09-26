@@ -58,11 +58,18 @@ class AllocationServerSideTest(unittest.TestCase):
         # NetworkBlock should assign us 10.0.2.1/32
         self.assertEquals(allocation.get_allocation_cidr(), '10.0.2.1/32', 'Did not get 10.0.2.1')
 
-        unusued_ip = allocation.get_unused_ip()
-        allocation.mark_ip_as_reserved(unusued_ip)
+        # Check that the machine and NetworkBlock objects have our list
+        machine_allocations = machine.list_allocations()
+        if not allocation in machine_allocations:
+            self.fail ("Allocation not found in list_allocations")
+
+        #unusued_ip = allocation.get_unused_ip()
+        #allocation.mark_ip_as_reserved(unusued_ip)
 
         # Now try to remove it
         allocation.remove()
+
+        # Confirm that the allocations are removed from the NetworkBlock
 
     def test_create_and_delete_ipv6_allocation(self):
         '''Create a basic IPv6 allocation'''
